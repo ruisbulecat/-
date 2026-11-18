@@ -263,6 +263,10 @@ node tests/browser.test.js
 ---
 
 ## 免责声明
+## 制作人
+- ruis_bule_cat
+- YuyiChumo
+
 
 本游戏为纯模拟娱乐，不涉及任何真实金钱交易，也没有任何充值入口。
 
