@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="赌徒模拟器：德州扑克、斗地主、赌石与高利贷，一场关于欲望与概率的网页模拟游戏。">
+  <meta name="theme-color" content="#07110d">
+  <title>赌徒模拟器 · Casino Simulator</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-spade" viewBox="0 0 24 24">
+      <path d="M12 3C10 6.5 5 8.4 5 12a4 4 0 0 0 7 2.5c-.2 2.2-1 3.7-2.5 5h5c-1.5-1.3-2.3-2.8-2.5-5A4 4 0 0 0 19 12c0-3.6-5-5.5-7-9Z"/>
+    </symbol>
+    <symbol id="icon-cards" viewBox="0 0 24 24">
+      <rect x="8" y="3" width="10" height="15" rx="2"/>
+      <path d="M6 6v13a2 2 0 0 0 2 2h8"/>
+    </symbol>
+    <symbol id="icon-gem" viewBox="0 0 24 24">
+      <path d="m12 3 7 5-3 11H8L5 8l7-5Z"/>
+      <path d="M5 8h14M12 3v16M8 19l4-11 4 11"/>
+    </symbol>
+    <symbol id="icon-bank" viewBox="0 0 24 24">
+      <path d="M3 9 12 4l9 5v2H3V9Z"/>
+      <path d="M5 11v7M9.5 11v7M14.5 11v7M19 11v7M3 20h18"/>
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24">
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>
+    </symbol>
+    <symbol id="icon-coin" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8"/>
+      <path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/>
+    </symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24">
+      <rect x="4" y="5" width="16" height="16" rx="2"/>
+      <path d="M8 3v4M16 3v4M4 10h16"/>
+    </symbol>
+    <symbol id="icon-bolt" viewBox="0 0 24 24">
+      <path d="m13 2-8 12h6l-1 8 8-12h-6l1-8Z"/>
+    </symbol>
+    <symbol id="icon-sound" viewBox="0 0 24 24">
+      <path d="M4 9v6h4l5 4V5L8 9H4Z"/>
+      <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>
+    </symbol>
+    <symbol id="icon-mute" viewBox="0 0 24 24">
+      <path d="M4 9v6h4l5 4V5L8 9H4Z"/>
+      <path d="m16 9 5 5M21 9l-5 5"/>
+    </symbol>
+    <symbol id="icon-help" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.8.5-1.1 1-1.1 2M12 17h.01"/>
+    </symbol>
+    <symbol id="icon-trophy" viewBox="0 0 24 24">
+      <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/>
+      <path d="M8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3M12 13v4M8 21h8M9 17h6"/>
+    </symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24">
+      <path d="m6 6 12 12M18 6 6 18"/>
+    </symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24">
+      <path d="M5 12h14M13 6l6 6-6 6"/>
+    </symbol>
+    <symbol id="icon-chip" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8"/>
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>
+    </symbol>
+    <symbol id="icon-warning" viewBox="0 0 24 24">
+      <path d="M12 3 2 21h20L12 3Z"/>
+      <path d="M12 9v5M12 17h.01"/>
+    </symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24">
+      <path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6l-7-3Z"/>
+    </symbol>
+    <symbol id="icon-oil" viewBox="0 0 24 24">
+      <path d="M5 21 10 4h4l5 17M3 21h18"/>
+      <path d="M8.4 10h7.2M7.4 14.5h9.2M12 4v17M9.2 21l2.8-7 2.8 7"/>
+    </symbol>
+  </svg>
+
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient__glow ambient__glow--gold"></div>
+    <div class="ambient__glow ambient__glow--green"></div>
+    <div class="ambient__glow ambient__glow--red"></div>
+    <div class="ambient__noise"></div>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#" id="brandHome" aria-label="返回开始界面">
+        <img class="brand__logo" src="assets/logo.svg" alt="" width="46" height="46">
+        <span class="brand__text">
+          <strong>赌徒模拟器</strong>
+          <small>CASINO SIMULATOR</small>
+        </span>
+      </a>
+      <div class="topbar__right">
+        <div class="bankroll" role="status" aria-live="polite">
+          <span class="bankroll__label">现金</span>
+          <strong class="bankroll__value" id="topbarMoney">$1,000</strong>
+        </div>
+        <button class="icon-btn" id="soundBtn" type="button" aria-label="开关音效" title="开关音效">
+          <svg class="icon"><use href="#icon-sound"></use></svg>
+        </button>
+        <button class="icon-btn" id="achieveBtn" type="button" aria-label="查看成就" title="查看成就">
+          <svg class="icon"><use href="#icon-trophy"></use></svg>
+        </button>
+        <button class="icon-btn" id="helpBtn" type="button" aria-label="查看玩法" title="查看玩法">
+          <svg class="icon"><use href="#icon-help"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- ==================== 开始界面 ==================== -->
+      <section class="screen setup" id="setupScreen">
+        <div class="hero">
+          <p class="eyebrow"><span class="eyebrow__line"></span> WELCOME TO THE HOUSE</p>
+          <h1 class="hero__title">十赌九输，<br><em>但你想试试第十次。</em></h1>
+          <p class="hero__desc">从小赌怡情到一掷千金。用牌技、眼力和运气，在倒计时结束前把 $1,000 变成传说——或者，欠下一辈子还不清的债。</p>
+          <div class="hero__features">
+            <div class="feature">
+              <span class="feature__icon"><svg class="icon"><use href="#icon-cards"></use></svg></span>
+              <div><strong>真牌型德州</strong><small>翻牌 / 转牌 / 河牌</small></div>
+            </div>
+            <div class="feature">
+              <span class="feature__icon"><svg class="icon"><use href="#icon-gem"></use></svg></span>
+              <div><strong>一刀天堂</strong><small>四种原石，独立爆率</small></div>
+            </div>
+            <div class="feature">
+              <span class="feature__icon"><svg class="icon"><use href="#icon-bank"></use></svg></span>
+              <div><strong>高利贷</strong><small>借得越多，利息越狠</small></div>
+            </div>
+          </div>
+          <p class="hero__quote">“赌场从不强迫任何人留下，它只是把门开得很大。”</p>
+        </div>
+
+        <div class="setup-panel">
+          <div class="setup-panel__head">
+            <div>
+              <p class="eyebrow eyebrow--small">NEW GAME</p>
+              <h2>开一桌</h2>
+            </div>
+            <div class="best-record" id="bestRecord">
+              <span>历史最佳</span>
+              <strong>—</strong>
+            </div>
+          </div>
+
+          <div class="setup-step">
+            <div class="step-head"><span class="step-num">01</span><h3>选择难度</h3><span class="step-note" id="dailyActionsNote">每天 3 次行动</span></div>
+            <div class="choice-grid" id="difficultyButtons">
+              <button class="choice" type="button" data-diff="1">
+                <span class="choice__icon">🌱</span>
+                <span class="choice__main"><strong>简单</strong><small>新手友好</small></span>
+                <span class="choice__tag">4 行动</span>
+              </button>
+              <button class="choice is-active" type="button" data-diff="2">
+                <span class="choice__icon">🎲</span>
+                <span class="choice__main"><strong>普通</strong><small>标准体验</small></span>
+                <span class="choice__tag">推荐</span>
+              </button>
+              <button class="choice" type="button" data-diff="3">
+                <span class="choice__icon">🔥</span>
+                <span class="choice__main"><strong>困难</strong><small>老手挑战</small></span>
+                <span class="choice__tag">利率 ↑</span>
+              </button>
+              <button class="choice" type="button" data-diff="4">
+                <span class="choice__icon">💀</span>
+                <span class="choice__main"><strong>地狱</strong><small>九死一生</small></span>
+                <span class="choice__tag">2 行动</span>
+              </button>
+            </div>
+            <div class="diff-matrix" id="diffMatrix" aria-live="polite"></div>
+          </div>
+
+          <div class="setup-step">
+            <div class="step-head"><span class="step-num">02</span><h3>选择期限</h3><span class="step-note">行动次数由难度决定</span></div>
+            <div class="segmented" id="daysButtons">
+              <button class="segment" type="button" data-days="7"><strong>7 天</strong><small>短期豪赌</small></button>
+              <button class="segment is-active" type="button" data-days="15"><strong>15 天</strong><small>中期经营</small></button>
+              <button class="segment" type="button" data-days="30"><strong>30 天</strong><small>长期传奇</small></button>
+            </div>
+          </div>
+
+          <div class="setup-summary" id="setupSummary">
+            <span class="setup-summary__dot"></span>
+            <span>当前选择：<strong>普通</strong> · <strong>15 天</strong> · 初始资金 $1,000</span>
+          </div>
+
+          <button class="btn btn--primary btn--lg btn--block" id="startGameBtn" type="button">
+            <span>进入赌场</span>
+            <svg class="icon"><use href="#icon-arrow"></use></svg>
+          </button>
+          <p class="fineprint">本游戏为纯模拟娱乐，不涉及任何真实金钱交易。赌博有害，请勿模仿。</p>
+        </div>
+      </section>
+
+      <!-- ==================== 主游戏界面 ==================== -->
+      <section class="screen game hidden" id="mainGame">
+        <div class="hud">
+          <div class="hud-card">
+            <span class="hud-card__icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span>
+            <div class="hud-card__body">
+              <span class="hud-card__label">剩余日程</span>
+              <strong class="hud-card__value" id="hudDay">第 1 / 15 天</strong>
+              <span class="hud-card__meta" id="hudDaysLeft">还剩 15 天</span>
+            </div>
+          </div>
+          <div class="hud-card">
+            <span class="hud-card__icon"><svg class="icon"><use href="#icon-bolt"></use></svg></span>
+            <div class="hud-card__body">
+              <span class="hud-card__label">今日行动</span>
+              <div class="action-pips" id="hudActions" aria-label="剩余行动次数"></div>
+              <span class="hud-card__meta" id="hudActionsText">3 / 3 次</span>
+            </div>
+          </div>
+          <div class="hud-card hud-card--money">
+            <span class="hud-card__icon"><svg class="icon"><use href="#icon-coin"></use></svg></span>
+            <div class="hud-card__body">
+              <span class="hud-card__label">现金</span>
+              <strong class="hud-card__value" id="hudMoney">$1,000</strong>
+              <span class="hud-card__meta" id="hudNet">净资产 $1,000</span>
+            </div>
+          </div>
+          <div class="hud-card hud-card--debt">
+            <span class="hud-card__icon"><svg class="icon"><use href="#icon-bank"></use></svg></span>
+            <div class="hud-card__body">
+              <span class="hud-card__label">贷款本息</span>
+              <strong class="hud-card__value" id="hudDebt">$0</strong>
+              <span class="hud-card__meta" id="hudLoans">暂无贷款</span>
+            </div>
+          </div>
+          <div class="hud-card">
+            <span class="hud-card__icon"><svg class="icon"><use href="#icon-chip"></use></svg></span>
+            <div class="hud-card__body">
+              <span class="hud-card__label">综合日利率</span>
+              <strong class="hud-card__value" id="hudRate">0%</strong>
+              <span class="hud-card__meta" id="hudRateNote">无债一身轻</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="day-progress" aria-hidden="true">
+          <div class="day-progress__fill" id="dayProgressFill"></div>
+        </div>
+
+        <div class="game-grid">
+          <div class="game-main">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow eyebrow--small">DEALER'S TABLE</p>
+                <h2>今天晚上，玩点什么？</h2>
+              </div>
+              <span class="day-chip" id="dayChip">DAY 1</span>
+            </div>
+
+            <div class="action-grid" id="mainMenuButtons">
+              <button class="action-card action-card--poker" id="btnPoker" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-spade"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">德州扑克</strong>
+                <span class="action-card__desc">单挑庄家 · 完整四轮下注</span>
+                <span class="action-card__meta"><span>最低 $20</span><span>真牌型</span></span>
+              </button>
+
+              <button class="action-card action-card--stone" id="btnStone" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-gem"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">赌石</strong>
+                <span class="action-card__desc">一刀穷，一刀富，一刀穿麻布</span>
+                <span class="action-card__meta"><span>$100 起</span><span>可连切</span></span>
+              </button>
+
+              <button class="action-card action-card--ddz" id="btnDoudizhu" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-cards"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">斗地主</strong>
+                <span class="action-card__desc">三人局 · 抢地主 · 赢双倍</span>
+                <span class="action-card__meta"><span>底注 $100</span><span>需 $200</span></span>
+              </button>
+
+              <button class="action-card action-card--loan" id="btnLoan" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-bank"></use></svg></span>
+                  <span class="action-card__cost action-card__cost--free">不耗行动</span>
+                </span>
+                <strong class="action-card__name">银行贷款</strong>
+                <span class="action-card__desc">用明天的钱，赌今天的命</span>
+                <span class="action-card__meta"><span>日息 5% 起</span><span>到期自动扣</span></span>
+              </button>
+
+              <button class="action-card action-card--oil hidden" id="btnOil" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-oil"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">黑金油田 <small>BLACK GOLD</small></strong>
+                <span class="action-card__desc">赌场地底的秘密：租地、看地质、逐层下钻、赌油价。</span>
+                <span class="action-card__meta"><span>$250 租金</span><span>3 口井位</span><span>瓦斯风险</span><span>6 × 5 地层</span></span>
+              </button>
+            </div>
+
+            <div class="log-wrap">
+              <div class="log-wrap__head">
+                <span class="live-dot"></span>
+                <span>牌桌播报</span>
+                <button class="text-btn" id="clearLogBtn" type="button">清空</button>
+              </div>
+              <div class="log" id="messageArea" role="log" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <aside class="game-side">
+            <div class="side-card side-card--sticky">
+              <div class="side-card__head">
+                <span class="side-card__icon"><svg class="icon"><use href="#icon-shield"></use></svg></span>
+                <div><h3>账本</h3><small>每一笔都躲不掉</small></div>
+              </div>
+              <div class="side-rows">
+                <div class="side-row"><span>现金</span><strong id="sideCash">$1,000</strong></div>
+                <div class="side-row"><span>贷款本息</span><strong class="text-red" id="sideDebt">$0</strong></div>
+                <div class="side-row"><span>活跃贷款</span><strong id="sideLoans">0 笔</strong></div>
+                <div class="side-row"><span>最近到期</span><strong id="sideNext">—</strong></div>
+                <div class="side-row side-row--net"><span>净资产</span><strong id="sideNet">$1,000</strong></div>
+              </div>
+              <button class="btn btn--primary btn--block" id="btnEndDay" type="button">
+                <svg class="icon"><use href="#icon-moon"></use></svg>
+                <span>结束今天</span>
+              </button>
+              <p class="side-hint" id="sideHint">结束今天会结算到期贷款。想清楚再睡。</p>
+            </div>
+
+            <div class="side-card side-card--tip">
+              <span class="tip-label">荷官提示</span>
+              <p id="dealerTip">牌桌不看眼泪，只看筹码。先保住本金，再谈翻倍。</p>
+              <div class="tip-chips">
+                <span class="mini-chip mini-chip--gold">稳</span>
+                <span class="mini-chip mini-chip--green">准</span>
+                <span class="mini-chip mini-chip--red">狠</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ==================== 结局界面 ==================== -->
+      <section class="screen ending hidden" id="endingScreen">
+        <div class="ending-card" id="endingContent"></div>
+        <div class="ending-actions">
+          <button class="btn btn--primary btn--lg" id="restartBtn" type="button">
+            <span>再来一局</span>
+            <svg class="icon"><use href="#icon-arrow"></use></svg>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span class="footer__suits" id="footerSuits">♠ ♥ ♣ ♦</span>
+      <span>概率不会记住你上次输了多少。</span>
+      <span>仅供娱乐 · 远离赌博</span>
+    </footer>
+  </div>
+
+  <div id="dynamicPanel" class="dynamic-panel hidden" aria-live="polite"></div>
+  <div id="modalRoot" class="modal-root"></div>
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/poker-engine.js"></script>
+  <script src="js/doudizhu-rules.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/poker.js"></script>
+  <script src="js/stone.js"></script>
+  <script src="js/doudizhu.js"></script>
+  <script src="js/loans.js"></script>
+  <script src="js/oil.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

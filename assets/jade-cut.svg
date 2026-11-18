@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="切涨的翡翠">
+  <defs>
+    <radialGradient id="cut-halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#8dffc4" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#3dbb7a" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#3dbb7a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cut-face" cx="42%" cy="36%" r="72%">
+      <stop offset="0" stop-color="#eafff2"/>
+      <stop offset="0.28" stop-color="#a8ffd0"/>
+      <stop offset="0.62" stop-color="#4ede96"/>
+      <stop offset="0.88" stop-color="#1d9c61"/>
+      <stop offset="1" stop-color="#0b623c"/>
+    </radialGradient>
+    <linearGradient id="cut-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9ffe9"/>
+      <stop offset="0.5" stop-color="#58cf92"/>
+      <stop offset="1" stop-color="#0c5f3a"/>
+    </linearGradient>
+    <filter id="cut-blur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="11"/>
+    </filter>
+  </defs>
+  <ellipse cx="150" cy="154" rx="126" ry="118" fill="url(#cut-halo)"/>
+  <path d="M150 42 224 72 258 139 226 210 154 252 82 212 47 143 76 79Z" fill="#06321f" stroke="#0a4a2d" stroke-width="4"/>
+  <path d="M150 54 214 80 244 140 216 201 153 238 90 204 59 142 85 86Z" fill="url(#cut-face)" stroke="url(#cut-rim)" stroke-width="3"/>
+  <path d="M150 54 184 130 153 238 116 130Z" fill="#d6ffe6" opacity="0.32"/>
+  <path d="M214 80 244 140 153 238 184 130Z" fill="#087a4a" opacity="0.3"/>
+  <path d="M85 86 116 130 59 142Z" fill="#b8ffd6" opacity="0.26"/>
+  <path d="M59 142 116 130 153 238 90 204Z" fill="#0b5738" opacity="0.32"/>
+  <path d="M184 130 244 140 216 201 153 238Z" fill="#4be39a" opacity="0.22"/>
+  <path d="M116 130 184 130 153 238Z" fill="#e5fff0" opacity="0.22"/>
+  <path d="M150 54 184 130 153 238 116 130Z" fill="none" stroke="#f0fff7" stroke-opacity="0.4" stroke-width="1.2"/>
+  <path d="M150 54 85 86 59 142 90 204 153 238 216 201 244 140 214 80Z" fill="none" stroke="#eafff2" stroke-opacity="0.45" stroke-width="1.2"/>
+  <path d="M110 95c18-13 41-19 62-17" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round" filter="url(#cut-blur)"/>
+  <path d="M94 178c12 17 29 28 49 33" fill="none" stroke="#eafff2" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round"/>
+  <g fill="#ffffff">
+    <path d="M226 62l3 8 8 3-8 3-3 8-3-8-8-3 8-3Z" opacity="0.9"/>
+    <path d="M68 90l2 5 5 2-5 2-2 5-2-5-5-2 5-2Z" opacity="0.6"/>
+    <circle cx="233" cy="196" r="2.2" opacity="0.75"/>
+    <circle cx="78" cy="186" r="1.8" opacity="0.6"/>
+  </g>
+  <ellipse cx="150" cy="264" rx="70" ry="11" fill="#000" opacity="0.3"/>
+</svg>

@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赌场模拟器 · 网页版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #0b2b1e 0%, #1a4a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            margin: 0;
+        }
+        .game-container {
+            max-width: 900px;
+            width: 100%;
+            background: #1e2f28;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7), inset 0 0 0 2px #4f7a5f;
+            padding: 24px;
+            color: #e9f5e9;
+        }
+        h1 {
+            text-align: center;
+            font-weight: 400;
+            letter-spacing: 2px;
+            margin: 0 0 12px;
+            color: #ffd966;
+            text-shadow: 0 2px 0 #6b4f1a;
+            font-size: 1.8rem;
+        }
+        .status-panel {
+            background: #0f1f18;
+            border-radius: 20px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #3e6b4b;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .status-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #a3c7a3;
+            letter-spacing: 1px;
+        }
+        .status-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #f0e68c;
+        }
+        .status-value.debt {
+            color: #ff8a7a;
+        }
+        .actions-left {
+            display: flex;
+            gap: 6px;
+            font-size: 1.2rem;
+        }
+        .action-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #3f6b4f;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .action-dot.active {
+            background: #f5d742;
+            box-shadow: 0 0 12px #f5d742;
+        }
+        .message-area {
+            background: #0a1712;
+            border-radius: 16px;
+            padding: 16px;
+            min-height: 160px;
+            max-height: 280px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border: 1px solid #2e4f3b;
+            margin-bottom: 18px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .message-area .highlight {
+            color: #ffd966;
+        }
+        .message-area .win {
+            color: #7ee787;
+        }
+        .message-area .lose {
+            color: #ff7b72;
+        }
+        .message-area .info {
+            color: #79c0ff;
+        }
+        .message-area .achievement {
+            color: #d2a8ff;
+            font-weight: bold;
+        }
+        .menu-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        button {
+            background: #2a4b39;
+            color: #e9f5e9;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 40px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 4px 0 #0d1f15;
+            flex: 1 1 auto;
+            min-width: 120px;
+        }
+        button:hover:not(:disabled) {
+            background: #3a6b4f;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 0 #0d1f15;
+        }
+        button:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #0d1f15;
+        }
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 0 #0d1f15;
+        }
+        button.primary {
+            background: #b8860b;
+            color: #0f1f18;
+            box-shadow: 0 4px 0 #6b4f1a;
+        }
+        button.primary:hover:not(:disabled) {
+            background: #d4a017;
+        }
+        button.danger {
+            background: #8b3a3a;
+            box-shadow: 0 4px 0 #4a1f1f;
+        }
+        button.danger:hover:not(:disabled) {
+            background: #a84e4e;
+        }
+        .sub-panel {
+            background: #10241c;
+            border-radius: 18px;
+            padding: 16px;
+            margin-top: 12px;
+            border: 1px solid #386649;
+        }
+        .hand-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .card {
+            background: #fff;
+            color: #222;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            min-width: 42px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        .card.red {
+            color: #c0392b;
+        }
+        .card.hidden-card {
+            background: #2c3e50;
+            color: #ecf0f1;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 12px 0;
+        }
+        .input-row input {
+            flex: 1 1 140px;
+            padding: 10px 14px;
+            border-radius: 30px;
+            border: none;
+            background: #1e3a2b;
+            color: white;
+            font-size: 1rem;
+            outline: 1px solid #3e6b4b;
+        }
+        .input-row input:focus {
+            outline: 2px solid #f5d742;
+        }
+        .input-row input::placeholder {
+            color: #8baa8b;
+        }
+        .loan-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 0.9rem;
+            background: #0f1f18;
+            padding: 10px 16px;
+            border-radius: 12px;
+            margin: 10px 0;
+        }
+        .divider {
+            height: 1px;
+            background: #2e4f3b;
+            margin: 16px 0;
+        }
+        .achievement-badge {
+            background: #2d1f3a;
+            border-radius: 30px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            color: #d2a8ff;
+            border: 1px solid #6b4f8a;
+            display: inline-block;
+            margin: 4px;
+        }
+        .small-note {
+            font-size: 0.8rem;
+            color: #a3c7a3;
+            margin-top: 6px;
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container" id="app">
+    <h1>♠️ 赌场模拟器 ♥️</h1>
+    <!-- 游戏初始化界面 -->
+    <div id="setupScreen">
+        <div class="sub-panel">
+            <h3 style="margin-top:0; color:#ffd966;">选择游戏难度</h3>
+            <div class="menu-buttons" id="difficultyButtons">
+                <button data-diff="1">简单 (赌石高概率)</button>
+                <button data-diff="2" class="primary">普通 (标准)</button>
+                <button data-diff="3">困难 (低概率)</button>
+                <button data-diff="4">地狱 (极低概率)</button>
+            </div>
+            <h3 style="margin-top:20px; color:#ffd966;">选择游戏天数</h3>
+            <div class="menu-buttons" id="daysButtons">
+                <button data-days="7">7天 (短期豪赌)</button>
+                <button data-days="15" class="primary">15天 (中期经营)</button>
+                <button data-days="30">30天 (长期传奇)</button>
+            </div>
+            <div class="divider"></div>
+            <button id="startGameBtn" class="primary" style="width:100%;">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 主游戏界面 -->
+    <div id="mainGame" class="hidden">
+        <div class="status-panel">
+            <div class="status-item">
+                <span class="status-label">天数剩余</span>
+                <span class="status-value" id="daysLeftDisplay">30</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">行动次数</span>
+                <div class="actions-left" id="actionsDisplay"></div>
+            </div>
+            <div class="status-item">
+                <span class="status-label">现金</span>
+                <span class="status-value" id="moneyDisplay">$1000</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">贷款欠款</span>
+                <span class="status-value debt" id="debtDisplay">$0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">日利率</span>
+                <span class="status-value" id="rateDisplay">5%</span>
+            </div>
+        </div>
+
+        <div class="message-area" id="messageArea"></div>
+
+        <div class="menu-buttons" id="mainMenuButtons">
+            <button id="btnPoker">🃏 德州扑克</button>
+            <button id="btnStone">💎 赌石</button>
+            <button id="btnDoudizhu">🃏 斗地主</button>
+            <button id="btnLoan">🏦 银行贷款</button>
+            <button id="btnEndDay" class="primary">🌙 结束今日</button>
+        </div>
+
+        <!-- 动态面板 -->
+        <div id="dynamicPanel" class="hidden"></div>
+    </div>
+
+    <!-- 结局界面 -->
+    <div id="endingScreen" class="hidden">
+        <div class="sub-panel" id="endingContent"></div>
+        <button id="restartBtn" class="primary" style="margin-top:16px;">重新开始</button>
+    </div>
+</div>
+
+<script>
+    // ==================== 游戏状态 ====================
+    const GameState = {
+        difficulty: 2,      // 1简单 2普通 3困难 4地狱
+        totalDays: 30,
+        daysLeft: 30,
+        money: 1000,
+        debt: 0,
+        dayInterestRate: 5,
+        actionsLeft: 3,
+        activeLoans: [],    // { amount, daysLeft, rate }
+        isBankrupt: false,
+        unlockedAchievements: new Set(),
+        maxSingleStoneWin: 0,
+        everBorrowed: false,
+        gameOver: false,
+    };
+
+    // 当前进行中的小游戏状态
+    let currentGame = null; // 'poker' | 'stone' | 'doudizhu'
+    let pokerState = null;
+    let stoneState = null;
+    let doudizhuState = null;
+
+    // ==================== 辅助函数 ====================
+    function randomInt(max) {
+        return Math.floor(Math.random() * max);
+    }
+
+    // 牌面定义
+    const SUITS = ['♥', '♦', '♣', '♠'];
+    const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+    const RANK_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+
+    // 创建一副牌 (不带大小王)
+    function createDeck(includeJokers = false) {
+        const deck = [];
+        for (let s = 0; s < 4; s++) {
+            for (let r = 0; r < 13; r++) {
+                deck.push({ suit: SUITS[s], rank: RANKS[r], value: RANK_VALUES[RANKS[r]], suitIdx: s });
+            }
+        }
+        if (includeJokers) {
+            deck.push({ suit: 'JOKER', rank: '小王', value: 16, suitIdx: 0 });
+            deck.push({ suit: 'JOKER', rank: '大王', value: 17, suitIdx: 0 });
+        }
+        return deck;
+    }
+
+    // 洗牌
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    // 手牌点数 (21点规则)
+    function handValue(cards) {
+        let total = 0, aces = 0;
+        for (const c of cards) {
+            let v = c.value;
+            if (c.rank === 'A') v = 11;
+            else if (['J','Q','K'].includes(c.rank)) v = 10;
+            else if (c.value > 14) v = c.value; // 大小王，但21点不用
+            total += v;
+            if (c.rank === 'A') aces++;
+        }
+        while (total > 21 && aces > 0) {
+            total -= 10;
+            aces--;
+        }
+        return total;
+    }
+
+    // 显示消息
+    function showMessage(text, type = '') {
+        const area = document.getElementById('messageArea');
+        const span = document.createElement('span');
+        if (type) span.className = type;
+        span.textContent = text + '\n';
+        area.appendChild(span);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function clearMessages() {
+        document.getElementById('messageArea').innerHTML = '';
+    }
+
+    // 解锁成就
+    function unlockAchievement(name, desc) {
+        if (!GameState.unlockedAchievements.has(name)) {
+            GameState.unlockedAchievements.add(name);
+            showMessage(`🏆 成就解锁：${name} - ${desc}`, 'achievement');
+        }
+    }
+
+    // 检查十亿欠款成就
+    function checkBillionDebtAchievement() {
+        if (GameState.daysLeft >= GameState.totalDays - 3 && GameState.debt >= 1000000000) {
+            unlockAchievement("欠钱才是大爷", "在游戏开始的前3天内欠款达到10亿！");
+        }
+    }
+
+    // 重新计算债务
+    function recalcDebt() {
+        let totalBase = 0;
+        let totalDebt = 0;
+        for (const l of GameState.activeLoans) {
+            totalDebt += l.amount + (l.amount * l.rate * (l.daysLeft > 0 ? 1 : 0) / 100);
+            totalBase += l.amount;
+        }
+        GameState.debt = Math.floor(totalDebt);
+        if (totalBase <= 3000) GameState.dayInterestRate = 5;
+        else if (totalBase <= 5000) GameState.dayInterestRate = 8;
+        else if (totalBase <= 10000) GameState.dayInterestRate = 12;
+        else GameState.dayInterestRate = 20;
+    }
+
+    // 处理到期贷款
+    function processLoans() {
+        for (let i = GameState.activeLoans.length - 1; i >= 0; i--) {
+            const loan = GameState.activeLoans[i];
+            loan.daysLeft--;
+            if (loan.daysLeft <= 0) {
+                const principal = loan.amount;
+                const interest = Math.floor(principal * loan.rate * 3 / 100);
+                const totalDue = principal + interest;
+                showMessage(`\n[催收警告] 一笔贷款到期！本金 $${principal}，利息 $${interest}，应还总额 $${totalDue}`);
+                if (GameState.money >= totalDue) {
+                    GameState.money -= totalDue;
+                    showMessage(`自动扣款成功！现金减少 $${totalDue}，剩余现金 $${GameState.money}`, 'win');
+                } else {
+                    showMessage(`现金不足！无法偿还 $${totalDue} 的贷款。`, 'lose');
+                    showMessage(`高利贷打手找上门来，把你洗劫一空...`, 'lose');
+                    GameState.isBankrupt = true;
+                    unlockAchievement("老赖末路", "因无力偿还高利贷被暴力催收，倾家荡产。");
+                    GameState.money = 0;
+                    return;
+                }
+                GameState.activeLoans.splice(i, 1);
+            }
+        }
+    }
+
+    // 结束一天
+    function endDay() {
+        GameState.daysLeft--;
+        GameState.actionsLeft = 3;
+        if (GameState.isBankrupt) return;
+
+        processLoans();
+        if (GameState.isBankrupt) return;
+
+        recalcDebt();
+        if (GameState.money < 0) GameState.money = 0;
+
+        updateUI();
+        if (GameState.daysLeft <= 0) {
+            endGame();
+        } else {
+            clearMessages();
+            showMessage(`🌙 第 ${GameState.totalDays - GameState.daysLeft + 1} 天开始，你有 3 次行动。`);
+        }
+    }
+
+    // 更新主界面UI
+    function updateUI() {
+        document.getElementById('daysLeftDisplay').textContent = GameState.daysLeft;
+        document.getElementById('moneyDisplay').textContent = '$' + GameState.money;
+        document.getElementById('debtDisplay').textContent = '$' + GameState.debt;
+        document.getElementById('rateDisplay').textContent = GameState.dayInterestRate + '%';
+
+        const actionsDiv = document.getElementById('actionsDisplay');
+        actionsDiv.innerHTML = '';
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'action-dot' + (i < GameState.actionsLeft ? ' active' : '');
+            actionsDiv.appendChild(dot);
+        }
+
+        // 按钮状态
+        document.getElementById('btnPoker').disabled = GameState.actionsLeft <= 0 || GameState.money < 20 || GameState.gameOver;
+        document.getElementById('btnStone').disabled = GameState.actionsLeft <= 0 || GameState.gameOver;
+        document.getElementById('btnDoudizhu').disabled = GameState.actionsLeft <= 0 || GameState.money < 200 || GameState.gameOver;
+        document.getElementById('btnEndDay').disabled = GameState.gameOver;
+
+        if (GameState.isBankrupt) {
+            document.getElementById('btnPoker').disabled = true;
+            document.getElementById('btnStone').disabled = true;
+            document.getElementById('btnDoudizhu').disabled = true;
+            document.getElementById('btnLoan').disabled = true;
+            document.getElementById('btnEndDay').disabled = true;
+        }
+    }
+
+    // 显示动态面板
+    function showDynamicPanel(html) {
+        const panel = document.getElementById('dynamicPanel');
+        panel.innerHTML = html;
+        panel.classList.remove('hidden');
+    }
+
+    function hideDynamicPanel() {
+        const panel = document.getElementById('dynamicPanel');
+        panel.innerHTML = '';
+        panel.classList.add('hidden');
+    }
+
+    // 主菜单按钮绑定
+    function bindMainMenu() {
+        document.getElementById('btnPoker').onclick = startPoker;
+        document.getElementById('btnStone').onclick = startStone;
+        document.getElementById('btnDoudizhu').onclick = startDoudizhu;
+        document.getElementById('btnLoan').onclick = showLoanMenu;
+        document.getElementById('btnEndDay').onclick = () => {
+            if (GameState.actionsLeft > 0) {
+                if (confirm('还有行动次数未使用，确定结束今天吗？')) {
+                    endDay();
+                }
+            } else {
+                endDay();
+            }
+        };
+    }
+
+    // ==================== 德州扑克 ====================
+    function startPoker() {
+        if (GameState.actionsLeft <= 0) { showMessage('今日行动次数已用完。', 'lose'); return; }
+        if (GameState.money < 20) { showMessage('现金不足，无法支付盲注。', 'lose'); return; }
+
+        GameState.actionsLeft--;
+        updateUI();
+        clearMessages();
+        showMessage('=== 德州扑克 (单局) ===');
+        showMessage(`你的筹码: $${GameState.money} | AI筹码: $1000`);
+
+        // 初始化扑克状态
+        const deck = shuffle(createDeck());
+        const playerHand = [deck.pop(), deck.pop()];
+        const aiHand = [deck.pop(), deck.pop()];
+        const player = { name: '你', chips: GameState.money, hand: playerHand, currentBet: 0, folded: false };
+        const ai = { name: 'AI-强敌', chips: 1000, hand: aiHand, currentBet: 0, folded: false };
+
+        pokerState = {
+            deck,
+            player,
+            ai,
+            pot: 0,
+            currentBet: 0,
+            phase: 'preflop', // preflop / flop / turn / river / showdown
+            community: [],
+            actionIndex: 0, // 0 = 玩家, 1 = AI
+            bettingRoundComplete: false,
+        };
+
+        // 下盲注：简化处理，玩家小盲10，AI大盲20
+        player.chips -= 10;
+        player.currentBet = 10;
+        pokerState.pot += 10;
+        ai.chips -= 20;
+        ai.currentBet = 20;
+        pokerState.pot += 20;
+        pokerState.currentBet = 20;
+
+        showMessage(`盲注已下: 底池 $${pokerState.pot}`);
+        renderPokerUI();
+    }
+
+    function renderPokerUI() {
+        if (!pokerState) return;
+        const { player, ai, pot, currentBet } = pokerState;
+        const toCall = Math.max(0, currentBet - player.currentBet);
+
+        let html = `<div class="sub-panel">
+            <h3 style="margin-top:0;">德州扑克</h3>
+            <div><strong>你的手牌：</strong>`;
+        for (const c of player.hand) {
+            const isRed = c.suit === '♥' || c.suit === '♦';
+            html += `<span class="card ${isRed ? 'red' : ''}">${c.suit}${c.rank}</span>`;
+        }
+        html += ` <span>(点数: ${handValue(player.hand)})</span></div>
+            <div><strong>AI 手牌：</strong>`;
+        for (let i = 0; i < ai.hand.length; i++) {
+            if (i === 0) html += `<span class="card hidden-card">?</span>`;
+            else {
+                const c = ai.hand[i];
+                const isRed = c.suit === '♥' || c.suit === '♦';
+                html += `<span class="card ${isRed ? 'red' : ''}">${c.suit}${c.rank}</span>`;
+            }
+        }
+        html += `</div>
+            <div>底池: $${pot} | 当前下注: $${currentBet} | 需跟注: $${toCall} | 你的筹码: $${player.chips}</div>`;
+
+        if (player.folded || ai.folded || pokerState.phase === 'showdown') {
+            // 摊牌或结束状态
+            html += `<div class="divider"></div>
+                <button id="pokerContinueBtn" class="primary">继续</button>`;
+        } else {
+            html += `<div class="divider"></div>
+                <div class="menu-buttons">
+                    <button id="pokerFoldBtn" class="danger">弃牌</button>
+                    <button id="pokerCallBtn" ${player.chips <= 0 ? 'disabled' : ''}>${toCall > 0 ? '跟注 $' + Math.min(toCall, player.chips) : '过牌'}</button>
+                    <button id="pokerRaiseBtn">加注</button>
+                </div>`;
+        }
+        html += `</div>`;
+        showDynamicPanel(html);
+
+        // 绑定按钮
+        const foldBtn = document.getElementById('pokerFoldBtn');
+        if (foldBtn) foldBtn.onclick = () => { player.folded = true; showMessage('你弃牌了', 'info'); resolvePokerBetting(); };
+        const callBtn = document.getElementById('pokerCallBtn');
+        if (callBtn) callBtn.onclick = () => {
+            const toCallNow = Math.max(0, pokerState.currentBet - player.currentBet);
+            const bet = Math.min(toCallNow, player.chips);
+            player.chips -= bet;
+            player.currentBet += bet;
+            pokerState.pot += bet;
+            showMessage(toCallNow > 0 ? `你跟注 $${bet}` : '你过牌');
+            resolvePokerBetting();
+        };
+        const raiseBtn = document.getElementById('pokerRaiseBtn');
+        if (raiseBtn) raiseBtn.onclick = () => {
+            const minRaise = Math.max(0, pokerState.currentBet - player.currentBet) + 10;
+            const input = prompt(`加注金额 (至少 $${minRaise})，你的筹码: $${player.chips}:`, minRaise);
+            if (input === null) return;
+            let raise = parseInt(input);
+            if (isNaN(raise)) raise = minRaise;
+            raise = Math.max(raise, minRaise);
+            raise = Math.min(raise, player.chips);
+            const totalBet = Math.max(0, pokerState.currentBet - player.currentBet) + raise;
+            const bet = Math.min(totalBet, player.chips);
+            player.chips -= bet;
+            player.currentBet += bet;
+            pokerState.pot += bet;
+            if (player.currentBet > pokerState.currentBet) {
+                pokerState.currentBet = player.currentBet;
+            }
+            showMessage(`你加注到 $${player.currentBet}`);
+            resolvePokerBetting();
+        };
+        const continueBtn = document.getElementById('pokerContinueBtn');
+        if (continueBtn) continueBtn.onclick = () => { finishPokerRound(); };
+    }
+
+    function resolvePokerBetting() {
+        // 玩家行动完成，轮到AI
+        if (pokerState.player.folded) {
+            // AI直接赢
+            showMessage(`你弃牌，AI 赢得底池 $${pokerState.pot}`, 'lose');
+            pokerState.ai.chips += pokerState.pot;
+            GameState.money = pokerState.player.chips;
+            pokerState.phase = 'showdown';
+            renderPokerUI();
+            return;
+        }
+        // AI 决策
+        const ai = pokerState.ai;
+        const aiVal = handValue(ai.hand);
+        let winProb;
+        if (aiVal >= 20) winProb = 0.9;
+        else if (aiVal >= 18) winProb = 0.8;
+        else if (aiVal >= 16) winProb = 0.65;
+        else if (aiVal >= 14) winProb = 0.5;
+        else if (aiVal >= 12) winProb = 0.4;
+        else if (aiVal >= 10) winProb = 0.3;
+        else winProb = 0.2;
+
+        const toCallAI = Math.max(0, pokerState.currentBet - ai.currentBet);
+        const potOdds = toCallAI / (pokerState.pot + toCallAI);
+
+        if (toCallAI === 0) {
+            if (winProb > 0.6) {
+                const raiseAmt = Math.min(ai.chips, Math.max(10, Math.floor(pokerState.pot * 0.5 * winProb)));
+                if (raiseAmt > 0) {
+                    const bet = Math.min(raiseAmt, ai.chips);
+                    ai.chips -= bet;
+                    ai.currentBet += bet;
+                    pokerState.pot += bet;
+                    if (ai.currentBet > pokerState.currentBet) pokerState.currentBet = ai.currentBet;
+                    showMessage(`AI 加注到 $${ai.currentBet}`);
+                } else {
+                    showMessage('AI 过牌');
+                }
+            } else if (winProb > 0.4 && Math.random() < 0.3) {
+                const bet = Math.min(20, ai.chips);
+                ai.chips -= bet;
+                ai.currentBet += bet;
+                pokerState.pot += bet;
+                if (ai.currentBet > pokerState.currentBet) pokerState.currentBet = ai.currentBet;
+                showMessage(`AI 下注 $${bet}`);
+            } else {
+                showMessage('AI 过牌');
+            }
+        } else {
+            if (winProb > 0.7) {
+                const raiseTotal = toCallAI + Math.min(ai.chips - toCallAI, Math.max(20, toCallAI * 2));
+                const bet = Math.min(raiseTotal, ai.chips);
+                ai.chips -= bet;
+                ai.currentBet += bet;
+                pokerState.pot += bet;
+                if (ai.currentBet > pokerState.currentBet) pokerState.currentBet = ai.currentBet;
+                showMessage(`AI 加注到 $${ai.currentBet}`);
+            } else if (winProb * 1.2 > potOdds) {
+                const bet = Math.min(toCallAI, ai.chips);
+                ai.chips -= bet;
+                ai.currentBet += bet;
+                pokerState.pot += bet;
+                showMessage(`AI 跟注 $${bet}`);
+            } else {
+                ai.folded = true;
+                showMessage('AI 弃牌', 'info');
+                showMessage(`你赢得底池 $${pokerState.pot}`, 'win');
+                pokerState.player.chips += pokerState.pot;
+                GameState.money = pokerState.player.chips;
+                pokerState.phase = 'showdown';
+                renderPokerUI();
+                return;
+            }
+        }
+
+        // 检查是否双方下注相等
+        if (ai.currentBet === pokerState.currentBet || ai.folded) {
+            // 进入下一阶段
+            advancePokerPhase();
+        } else {
+            renderPokerUI();
+        }
+    }
+
+    function advancePokerPhase() {
+        // 简化：直接摊牌（单局不分阶段，因为我们只有两人，翻牌前就全下了）
+        // 为了简单，直接摊牌
+        pokerState.phase = 'showdown';
+        showdownPoker();
+    }
+
+    function showdownPoker() {
+        const { player, ai, pot } = pokerState;
+        showMessage('\n=== 摊牌 ===');
+        showMessage(`你的手牌: ${player.hand.map(c => c.suit + c.rank).join(' ')} (点数: ${handValue(player.hand)})`);
+        showMessage(`AI 手牌: ${ai.hand.map(c => c.suit + c.rank).join(' ')} (点数: ${handValue(ai.hand)})`);
+
+        const playerVal = handValue(player.hand) > 21 ? 0 : handValue(player.hand);
+        const aiVal = handValue(ai.hand) > 21 ? 0 : handValue(ai.hand);
+
+        if (playerVal === 0 && aiVal === 0) {
+            showMessage('双方爆牌，底池平分', 'info');
+            const split = Math.floor(pot / 2);
+            player.chips += split;
+            ai.chips += split;
+        } else if (playerVal > aiVal) {
+            showMessage('你赢了！', 'win');
+            player.chips += pot;
+        } else if (aiVal > playerVal) {
+            showMessage('AI 赢了！', 'lose');
+            ai.chips += pot;
+        } else {
+            showMessage('平局，底池平分', 'info');
+            const split = Math.floor(pot / 2);
+            player.chips += split;
+            ai.chips += split;
+        }
+
+        GameState.money = player.chips;
+        updateUI();
+        renderPokerUI();
+    }
+
+    function finishPokerRound() {
+        hideDynamicPanel();
+        pokerState = null;
+        GameState.money = Math.max(0, GameState.money);
+        updateUI();
+        clearMessages();
+        showMessage('德州扑克结束，返回主菜单。');
+    }
+
+    // ==================== 赌石 ====================
+    const STONES = [
+        { name: '普通原石', price: 100, desc: '全赌料，皮壳一般' },
+        { name: '白砂皮', price: 300, desc: '皮薄有松花' },
+        { name: '黑乌沙', price: 800, desc: '老坑黑皮' },
+        { name: '帝王料', price: 2000, desc: '极品老坑' },
+    ];
+
+    function startStone() {
+        if (GameState.actionsLeft <= 0) { showMessage('今日行动次数已用完。', 'lose'); return; }
+
+        GameState.actionsLeft--;
+        updateUI();
+        clearMessages();
+        showMessage('=== 赌石场 ===');
+        showMessage(`你的资金: $${GameState.money} | 当前难度: ${['','简单','普通','困难','地狱'][GameState.difficulty]}`);
+
+        let html = `<div class="sub-panel">
+            <h3 style="margin-top:0;">赌石场</h3>`;
+        STONES.forEach((s, i) => {
+            html += `<div style="margin:8px 0;">
+                <button class="stone-btn" data-idx="${i}" ${GameState.money < s.price ? 'disabled' : ''} style="width:100%;text-align:left;">
+                    ${i+1}. ${s.name} - 价格: $${s.price} (${s.desc})
+                </button>
+            </div>`;
+        });
+        html += `<button id="stoneLeaveBtn" class="danger" style="margin-top:12px;">离开赌石场</button>
+        </div>`;
+        showDynamicPanel(html);
+
+        document.querySelectorAll('.stone-btn').forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                playStone(idx);
+            };
+        });
+	        document.getElementById('stoneLeaveBtn').onclick = () => {
+            hideDynamicPanel();
+            GameState.money = Math.max(0, GameState.money);
+            updateUI();
+            clearMessages();
+            showMessage('你离开了赌石场。');
+        };
+    }
+
+    function playStone(idx) {
+        const s = STONES[idx];
+        if (GameState.money < s.price) { showMessage('资金不足！', 'lose'); return; }
+
+        GameState.money -= s.price;
+        updateUI();
+        showMessage(`\n你买下了 ${s.name}，正在切割...`);
+
+        // 难度对概率的影响
+        const diff = GameState.difficulty;
+        let prob, winMin, winMax, goodName, badMsg;
+
+        if (idx === 0) {
+            prob = diff === 1 ? 30 : diff === 2 ? 25 : diff === 3 ? 15 : 5;
+            if (diff === 1) { winMin = 400; winMax = 800; }
+            else if (diff === 2) { winMin = 300; winMax = 1000; }
+            else if (diff === 3) { winMin = 100; winMax = 1600; }
+            else { winMin = 100; winMax = 3100; }
+            goodName = '切出豆种翡翠！';
+            badMsg = '切垮了，里面全是石头。';
+        } else if (idx === 1) {
+            prob = diff === 1 ? 50 : diff === 2 ? 40 : diff === 3 ? 25 : 10;
+            if (diff === 1) { winMin = 1000; winMax = 2000; }
+            else if (diff === 2) { winMin = 800; winMax = 2800; }
+            else if (diff === 3) { winMin = 400; winMax = 4400; }
+            else { winMin = 300; winMax = 8300; }
+            goodName = '切出糯种翡翠！';
+            badMsg = '切垮了，只有裂纹。';
+        } else if (idx === 2) {
+            prob = diff === 1 ? 65 : diff === 2 ? 55 : diff === 3 ? 35 : 15;
+            if (diff === 1) { winMin = 2000; winMax = 5000; }
+            else if (diff === 2) { winMin = 1500; winMax = 5500; }
+            else if (diff === 3) { winMin = 1000; winMax = 9000; }
+            else { winMin = 500; winMax = 18500; }
+            goodName = '切出冰种翡翠！';
+            badMsg = '切垮了，皮厚无肉。';
+        } else {
+            prob = diff === 1 ? 80 : diff === 2 ? 70 : diff === 3 ? 45 : 20;
+            if (diff === 1) { winMin = 5000; winMax = 10000; }
+            else if (diff === 2) { winMin = 5000; winMax = 15000; }
+            else if (diff === 3) { winMin = 3000; winMax = 23000; }
+            else { winMin = 1000; winMax = 51000; }
+            goodName = '切出玻璃种帝王绿！';
+            badMsg = '切垮了，神仙难断寸玉。';
+        }
+
+        const roll = randomInt(100);
+        if (roll < prob) {
+            const winValue = winMin + randomInt(winMax - winMin + 1);
+            showMessage(goodName, 'win');
+            showMessage(`翡翠估价: $${winValue}`, 'win');
+            GameState.money += winValue;
+            GameState.maxSingleStoneWin = Math.max(GameState.maxSingleStoneWin, winValue);
+        } else {
+            showMessage(badMsg, 'lose');
+        }
+
+        updateUI();
+        hideDynamicPanel();
+        // 稍后重新打开赌石菜单
+        setTimeout(() => {
+            if (GameState.actionsLeft > 0 && !GameState.gameOver && !GameState.isBankrupt) {
+                // 询问是否继续赌石
+                if (confirm('是否继续赌石？（不消耗额外行动次数，但行动次数已用掉）')) {
+                    startStone();
+                } else {
+                    clearMessages();
+                    showMessage('你离开了赌石场。');
+                }
+            }
+        }, 300);
+    }
+
+    // ==================== 斗地主 ====================
+    function startDoudizhu() {
+        if (GameState.actionsLeft <= 0) { showMessage('今日行动次数已用完。', 'lose'); return; }
+        if (GameState.money < 200) { showMessage('资金不足以参与斗地主（需至少$200）', 'lose'); return; }
+
+        GameState.actionsLeft--;
+        updateUI();
+        clearMessages();
+        showMessage('=== 斗地主 (单机 vs AI) ===');
+        showMessage(`你的资金: $${GameState.money}`);
+
+        const baseBet = 100;
+        GameState.money -= baseBet;
+
+        // 初始化牌堆
+        const deck = shuffle(createDeck(true)); // 54张含大小王
+        const players = [
+            { name: '你', hand: [], isLandlord: false, isAI: false },
+            { name: 'AI-右', hand: [], isLandlord: false, isAI: true },
+            { name: 'AI-左', hand: [], isLandlord: false, isAI: true },
+        ];
+
+        // 发牌：每人17张，底牌3张
+        for (let i = 0; i < 51; i++) {
+            players[i % 3].hand.push(deck.pop());
+        }
+        const bottomCards = [deck.pop(), deck.pop(), deck.pop()];
+
+        // 随机地主
+        const landlordIndex = randomInt(3);
+        players[landlordIndex].isLandlord = true;
+        players[landlordIndex].hand.push(...bottomCards);
+
+        // 排序手牌
+        players.forEach(p => p.hand.sort((a, b) => a.value - b.value));
+
+        doudizhuState = {
+            players,
+            landlordIndex,
+            currentTurn: landlordIndex,
+            lastPlay: [],
+            lastPlayOwner: -1,
+            gameOver: false,
+            baseBet,
+            bottomCards,
+            pendingAction: null, // 'play' | 'pass'
+        };
+
+        showMessage(`本局地主是: ${players[landlordIndex].name}`);
+        if (players[landlordIndex].isAI) {
+            showMessage(`地主手牌: ${players[landlordIndex].hand.map(c => c.suit + c.rank).join(' ')}`);
+        }
+        renderDoudizhuUI();
+    }
+
+    // 判断牌型
+    function getCardType(cards) {
+        if (cards.length === 0) return '';
+        const n = cards.length;
+        const counts = {};
+        for (const c of cards) counts[c.value] = (counts[c.value] || 0) + 1;
+        const keys = Object.keys(counts).map(Number).sort((a, b) => a - b);
+        const countVals = keys.map(k => counts[k]);
+
+        if (n === 1) return '单张';
+        if (n === 2 && keys.length === 1) return '对子';
+        if (n === 2 && counts[16] && counts[17]) return '王炸';
+        if (n === 3 && keys.length === 1) return '三张';
+        if (n === 4 && keys.length === 1) return '炸弹';
+        if (n === 4 && keys.length === 2 && countVals.includes(3)) return '三带一';
+
+        // 顺子：至少5张，连续，不含2和王
+        if (n >= 5 && keys.length === n && keys[keys.length - 1] < 15) {
+            let ok = true;
+            for (let i = 1; i < keys.length; i++) {
+                if (keys[i] !== keys[i - 1] + 1) { ok = false; break; }
+            }
+            if (ok) return '顺子';
+        }
+        // 连对：至少3对，连续
+        if (n >= 6 && n % 2 === 0 && keys.length === n / 2) {
+            let ok = true;
+            for (const v of countVals) if (v !== 2) { ok = false; break; }
+            if (ok) {
+                for (let i = 1; i < keys.length; i++) {
+                    if (keys[i] !== keys[i - 1] + 1) { ok = false; break; }
+                }
+            }
+            if (ok && keys[keys.length - 1] < 15) return '连对';
+        }
+        // 飞机：至少2个三张，连续
+        if (n >= 6 && n % 3 === 0 && keys.length === n / 3) {
+            let ok = true;
+            for (const v of countVals) if (v !== 3) { ok = false; break; }
+            if (ok) {
+                for (let i = 1; i < keys.length; i++) {
+                    if (keys[i] !== keys[i - 1] + 1) { ok = false; break; }
+                }
+            }
+            if (ok && keys[keys.length - 1] < 15) return '飞机';
+        }
+        return '';
+    }
+
+    function maxValue(cards) {
+        let mx = 0;
+        for (const c of cards) mx = Math.max(mx, c.value);
+        return mx;
+    }
+
+    function canBeat(newCards, oldCards) {
+        if (oldCards.length === 0) return true;
+        const t1 = getCardType(newCards);
+        const t2 = getCardType(oldCards);
+        if (!t1) return false;
+        if (t1 === t2) return maxValue(newCards) > maxValue(oldCards);
+        if (t1 === '炸弹' && t2 !== '王炸') return true;
+        if (t1 === '王炸') return true;
+        return false;
+    }
+
+    // AI 出牌逻辑
+    function aiPlayDoudizhu(ai, lastCards) {
+        const hand = ai.hand;
+        const groups = {};
+        for (const c of hand) {
+            if (!groups[c.value]) groups[c.value] = [];
+            groups[c.value].push(c);
+        }
+        const keys = Object.keys(groups).map(Number).sort((a, b) => a - b);
+
+        if (lastCards.length === 0) {
+            // 自由出牌：出最小的单张
+            const minKey = keys[0];
+            return [groups[minKey][0]];
+        }
+
+        const lastType = getCardType(lastCards);
+        const lastVal = maxValue(lastCards);
+
+        // 先看炸弹
+        for (const k of keys) {
+            if (groups[k].length === 4) {
+                if (lastType !== '王炸') return groups[k].slice(0, 4);
+            }
+        }
+        // 王炸
+        if (groups[16] && groups[17]) {
+            if (lastType !== '王炸') return [groups[16][0], groups[17][0]];
+        }
+
+        if (lastType === '单张') {
+            for (const k of keys) if (k > lastVal) return [groups[k][0]];
+        } else if (lastType === '对子') {
+            for (const k of keys) if (k > lastVal && groups[k].length >= 2) return groups[k].slice(0, 2);
+        } else if (lastType === '三张') {
+            for (const k of keys) if (k > lastVal && groups[k].length >= 3) return groups[k].slice(0, 3);
+        } else if (lastType === '三带一') {
+            for (const k of keys) {
+                if (k > lastVal && groups[k].length >= 3) {
+                    const triple = groups[k].slice(0, 3);
+                    for (const k2 of keys) {
+                        if (k2 !== k && groups[k2].length >= 1) {
+                            return [...triple, groups[k2][0]];
+                        }
+                    }
+                }
+            }
+        } else if (lastType === '顺子') {
+            // 简单处理：找连续5张比它大的
+            for (let start = lastVal - 4; start <= 14; start++) {
+                if (start < 3) continue;
+                let ok = true;
+                const res = [];
+                for (let v = start; v < start + 5; v++) {
+                    if (!groups[v]) { ok = false; break; }
+                    res.push(groups[v][0]);
+                }
+                if (ok && start + 4 > lastVal) return res;
+            }
+        } else if (lastType === '连对') {
+            for (let start = 3; start <= 14; start++) {
+                let ok = true;
+                const res = [];
+                for (let v = start; v < start + (lastCards.length / 2); v++) {
+                    if (!groups[v] || groups[v].length < 2) { ok = false; break; }
+                    res.push(groups[v][0], groups[v][1]);
+                }
+                if (ok && start + (lastCards.length / 2) - 1 > lastVal) return res;
+            }
+        } else if (lastType === '飞机') {
+            const len = lastCards.length / 3;
+            for (let start = 3; start <= 14; start++) {
+                let ok = true;
+                const res = [];
+                for (let v = start; v < start + len; v++) {
+                    if (!groups[v] || groups[v].length < 3) { ok = false; break; }
+                    res.push(groups[v][0], groups[v][1], groups[v][2]);
+                }
+                if (ok && start + len - 1 > lastVal) return res;
+            }
+        }
+        return []; // 不出
+    }
+
+    function renderDoudizhuUI() {
+        if (!doudizhuState) return;
+        const { players, currentTurn, lastPlay, lastPlayOwner, gameOver } = doudizhuState;
+        const me = players[0];
+
+        let html = `<div class="sub-panel">
+            <h3 style="margin-top:0;">斗地主</h3>`;
+
+        // 显示其他玩家手牌数量
+        html += `<div style="margin-bottom:8px;">`;
+        for (let i = 1; i < 3; i++) {
+            const p = players[i];
+            html += `<span style="margin-right:16px;">${p.name}: ${p.hand.length}张 ${p.isLandlord ? '👑地主' : ''}</span>`;
+        }
+        html += `</div>`;
+
+        // 上家出牌
+        if (lastPlay.length > 0 && lastPlayOwner !== -1) {
+            html += `<div>上家(${players[lastPlayOwner].name})出牌: `;
+            for (const c of lastPlay) html += `<span class="card">${c.suit}${c.rank}</span>`;
+            html += `</div>`;
+        } else {
+            html += `<div>你可以自由出牌</div>`;
+        }
+
+        // 我的手牌
+        html += `<div style="margin-top:12px;"><strong>你的手牌 (${me.hand.length}张) ${me.isLandlord ? '👑地主' : ''}:</strong></div>
+            <div class="hand-cards">`;
+        me.hand.forEach((c, i) => {
+            const isRed = c.suit === '♥' || c.suit === '♦' || c.suit === 'JOKER';
+            html += `<span class="card ${isRed ? 'red' : ''} hand-card" data-idx="${i}" style="cursor:pointer; ${currentTurn === 0 && !gameOver ? 'outline:2px solid #f5d742;' : ''}">${c.suit}${c.rank}</span>`;
+        });
+        html += `</div>`;
+
+        if (!gameOver && currentTurn === 0) {
+            html += `<div class="menu-buttons">
+                <button id="ddzPlayBtn" class="primary">出牌</button>
+                <button id="ddzPassBtn" class="danger">不出</button>
+            </div>`;
+        } else if (!gameOver) {
+            html += `<div style="color:#a3c7a3;">等待 ${players[currentTurn].name} 出牌...</div>`;
+        }
+
+        if (gameOver) {
+            html += `<div class="divider"></div>
+                <button id="ddzFinishBtn" class="primary" style="width:100%;">结束斗地主</button>`;
+        }
+        html += `</div>`;
+        showDynamicPanel(html);
+
+        // 选中手牌
+        let selected = new Set();
+        document.querySelectorAll('.hand-card').forEach(el => {
+            el.onclick = () => {
+                if (currentTurn !== 0 || gameOver) return;
+                const idx = parseInt(el.dataset.idx);
+                if (selected.has(idx)) {
+                    selected.delete(idx);
+                    el.style.outline = '2px solid #f5d742';
+                } else {
+                    selected.add(idx);
+                    el.style.outline = '3px solid #7ee787';
+                }
+            };
+        });
+
+        const playBtn = document.getElementById('ddzPlayBtn');
+        if (playBtn) playBtn.onclick = () => {
+            if (selected.size === 0) { showMessage('请先选择要出的牌。', 'lose'); return; }
+            const idxs = Array.from(selected).sort((a, b) => a - b);
+            const cards = idxs.map(i => me.hand[i]);
+            if (!canBeat(cards, doudizhuState.lastPlay)) {
+                showMessage('无效出牌，管不上或牌型不对！', 'lose');
+                return;
+            }
+            playDoudizhuCards(0, cards);
+        };
+
+        const passBtn = document.getElementById('ddzPassBtn');
+        if (passBtn) passBtn.onclick = () => {
+            if (doudizhuState.lastPlay.length === 0) {
+                showMessage('你是自由出牌，不能不出。', 'lose');
+                return;
+            }
+            showMessage('你选择不出');
+            advanceDoudizhuTurn(false);
+        };
+
+        const finishBtn = document.getElementById('ddzFinishBtn');
+        if (finishBtn) finishBtn.onclick = () => {
+            hideDynamicPanel();
+            doudizhuState = null;
+            GameState.money = Math.max(0, GameState.money);
+            updateUI();
+            clearMessages();
+            showMessage('斗地主结束，返回主菜单。');
+        };
+    }
+
+    function playDoudizhuCards(playerIdx, cards) {
+        const p = doudizhuState.players[playerIdx];
+        // 从手牌中移除
+        for (const c of cards) {
+            const idx = p.hand.findIndex(h => h.suit === c.suit && h.rank === c.rank);
+            if (idx !== -1) p.hand.splice(idx, 1);
+        }
+        doudizhuState.lastPlay = cards;
+        doudizhuState.lastPlayOwner = playerIdx;
+
+        showMessage(`${p.name} 打出: ${cards.map(c => c.suit + c.rank).join(' ')}`);
+
+        if (p.hand.length === 0) {
+            doudizhuState.gameOver = true;
+            showMessage(`${p.name} 手牌出完了！`, 'win');
+            if (p.isLandlord) {
+                showMessage('地主胜利！', p.isAI ? 'lose' : 'win');
+                if (p === doudizhuState.players[0]) {
+                    GameState.money += doudizhuState.baseBet * 3;
+                }
+            } else {
+                showMessage('农民胜利！', p.isAI ? 'lose' : 'win');
+                if (p === doudizhuState.players[0]) {
+                    GameState.money += doudizhuState.baseBet * 1;
+                }
+            }
+            updateUI();
+            renderDoudizhuUI();
+            return;
+        }
+
+        advanceDoudizhuTurn(true);
+    }
+
+    function advanceDoudizhuTurn(actionTaken) {
+        const state = doudizhuState;
+        if (state.gameOver) return;
+
+        state.currentTurn = (state.currentTurn + 1) % 3;
+
+        // 检查是否两家都不出，重置
+        if (!actionTaken && state.currentTurn === state.lastPlayOwner) {
+            state.lastPlay = [];
+            state.lastPlayOwner = -1;
+            showMessage(`两家都不出，轮到 ${state.players[state.currentTurn].name} 重新出牌`);
+        }
+
+        // 如果是AI的回合，自动行动
+        if (state.players[state.currentTurn].isAI && !state.gameOver) {
+            setTimeout(() => {
+                if (state.gameOver) return;
+                const ai = state.players[state.currentTurn];
+                let aiCards;
+                if (state.lastPlayOwner === state.currentTurn) {
+                    // 自己是上家，自由出牌
+                    aiCards = aiPlayDoudizhu(ai, []);
+                } else {
+                    aiCards = aiPlayDoudizhu(ai, state.lastPlay);
+                }
+                if (aiCards.length > 0) {
+                    playDoudizhuCards(state.currentTurn, aiCards);
+                } else {
+                    showMessage(`${ai.name} 不出`);
+                    advanceDoudizhuTurn(false);
+                }
+            }, 600);
+        } else {
+            renderDoudizhuUI();
+        }
+    }
+
+    // ==================== 银行贷款 ====================
+    function showLoanMenu() {
+        if (GameState.gameOver || GameState.isBankrupt) return;
+        clearMessages();
+        showMessage('=== 银行借贷 (不消耗行动次数) ===');
+        showMessage(`当前现金: $${GameState.money} | 现有总欠款: $${GameState.debt} | 基础日利率: ${GameState.dayInterestRate}%`);
+
+        let html = `<div class="sub-panel">
+            <h3 style="margin-top:0;">🏦 银行贷款</h3>
+            <div class="loan-info">
+                <span>现金: <strong>$${GameState.money}</strong></span>
+                <span>总欠款: <strong style="color:#ff8a7a;">$${GameState.debt}</strong></span>
+                <span>日利率: <strong>${GameState.dayInterestRate}%</strong></span>
+            </div>`;
+
+        if (GameState.activeLoans.length > 0) {
+            html += `<div style="margin:10px 0;">`;
+            GameState.activeLoans.forEach((l, i) => {
+                html += `<div style="font-size:0.9rem;">贷款${i + 1}: 本金 $${l.amount} | 剩余 ${l.daysLeft} 天 | 日利率 ${l.rate}%</div>`;
+            });
+            html += `</div>`;
+        }
+
+        html += `<div class="divider"></div>
+            <h4>借款</h4>
+            <div class="input-row">
+                <input type="number" id="loanAmountInput" placeholder="借款金额 (≥$1000)" min="1000" step="1000">
+            </div>
+            <div class="menu-buttons">
+                <button class="loan-period-btn" data-period="3" data-rate="5">3天 (日利率5%)</button>
+                <button class="loan-period-btn" data-period="7" data-rate="7">7天 (日利率7%)</button>
+                <button class="loan-period-btn" data-period="15" data-rate="10">15天 (日利率10%)</button>
+            </div>
+            <div class="divider"></div>
+            <div class="menu-buttons">
+                <button id="loanRepayBtn" class="danger" ${GameState.activeLoans.length === 0 ? 'disabled' : ''}>提前还款 (最早一笔)</button>
+                <button id="loanBackBtn" class="primary">返回主菜单</button>
+            </div>
+        </div>`;
+        showDynamicPanel(html);
+
+        // 借款按钮
+        document.querySelectorAll('.loan-period-btn').forEach(btn => {
+            btn.onclick = () => {
+                const amount = parseInt(document.getElementById('loanAmountInput').value);
+                if (isNaN(amount) || amount < 1000) { showMessage('借款金额不能低于 $1000！', 'lose'); return; }
+                if (amount > 2000000000) { showMessage('借款金额过大，银行拒绝放贷！', 'lose'); return; }
+                const period = parseInt(btn.dataset.period);
+                const rate = parseInt(btn.dataset.rate);
+
+                GameState.money += amount;
+                GameState.activeLoans.push({ amount, daysLeft: period, rate });
+                GameState.everBorrowed = true;
+                recalcDebt();
+                showMessage(`已借入 $${amount}，周期 ${period} 天，日利率 ${rate}%。`, 'win');
+                showMessage(`到期需偿还本息约 $${Math.floor(amount + amount * rate * period / 100)}，请确保现金充足！`);
+                checkBillionDebtAchievement();
+                updateUI();
+                showLoanMenu(); // 刷新
+            };
+        });
+
+        // 提前还款
+        const repayBtn = document.getElementById('loanRepayBtn');
+        if (repayBtn) repayBtn.onclick = () => {
+            if (GameState.activeLoans.length === 0) { showMessage('目前没有活跃的贷款。', 'lose'); return; }
+            const l = GameState.activeLoans[0];
+            const elapsed = Math.max(0, 3 - l.daysLeft);
+            const interest = Math.floor(l.amount * l.rate * elapsed / 100);
+            const totalDue = l.amount + interest;
+
+            if (confirm(`提前还款：本金 $${l.amount}，已产生利息 $${interest}，应还 $${totalDue}。确认？`)) {
+                if (GameState.money >= totalDue) {
+                    GameState.money -= totalDue;
+                    GameState.activeLoans.shift();
+                    recalcDebt();
+                    showMessage(`还款成功！剩余现金 $${GameState.money}`, 'win');
+                    updateUI();
+                    showLoanMenu();
+                } else {
+                    showMessage('现金不足，无法提前还款！', 'lose');
+                }
+            }
+        };
+
+        const backBtn = document.getElementById('loanBackBtn');
+        if (backBtn) backBtn.onclick = () => {
+            hideDynamicPanel();
+            clearMessages();
+            showMessage('返回主菜单。');
+        };
+    }
+
+    // ==================== 结局 ====================
+    function endGame() {
+        GameState.gameOver = true;
+        hideDynamicPanel();
+        clearMessages();
+
+        const finalAssets = GameState.money - GameState.debt;
+
+        // 成就结算
+        if (finalAssets >= 50000) unlockAchievement("赌场传奇", "最终净资产达到 $50,000 以上！");
+        if (GameState.maxSingleStoneWin >= 20000) unlockAchievement("一刀暴富", "单次赌石切出价值 $20,000 以上的极品翡翠！");
+        if (!GameState.everBorrowed && finalAssets > 0) unlockAchievement("稳健投资", "全程未借款，且最终净资产为正！");
+        if (finalAssets < 0 && !GameState.isBankrupt) unlockAchievement("倾家荡产", "输光了所有筹码，最终净资产为负。");
+        if (finalAssets >= 1000000000) unlockAchievement("富可敌国", "最终净资产突破10亿！");
+
+        let endingHtml = `<h2>赌场之旅结束了</h2>
+            <p>最终现金: <strong>$${GameState.money}</strong></p>
+            <p>剩余贷款: <strong>$${GameState.debt}</strong></p>
+            <p>净资产: <strong style="color:${finalAssets >= 0 ? '#7ee787' : '#ff7b72'};">$${finalAssets}</strong></p>
+            <div class="divider"></div>`;
+
+        if (GameState.isBankrupt) {
+            endingHtml += `<p style="color:#ff7b72;"><strong>【结局：老赖末路】</strong></p>
+                <p>你无力偿还高利贷，被地下钱庄的打手剁了手指。</p>
+                <p>最后一眼，你看到的是一张冰冷的借条和一片黑暗。</p>
+                <p>赌博害人，切记，切记...</p>`;
+        } else if (finalAssets < 0) {
+            endingHtml += `<p style="color:#ff7b72;"><strong>【结局：负债累累】</strong></p>
+                <p>你不仅输光了筹码，还欠了一屁股债。高利贷的追债人正在门外等你...</p>
+                <p>早知如此，何必当初？</p>`;
+        } else if (finalAssets === 0) {
+            endingHtml += `<p><strong>【结局：不赚不亏】</strong></p>
+                <p>你勉强保住了本金，带着一身疲惫离开了赌场。</p>
+                <p>这趟赌场之旅，就当是体验人生吧。</p>`;
+        } else if (finalAssets <= 1000) {
+            endingHtml += `<p style="color:#7ee787;"><strong>【结局：小赚一笔】</strong></p>
+                <p>你带着 $${finalAssets} 的利润离开了赌场。</p>
+                <p>虽然不多，但至少没亏本。</p>`;
+        } else if (finalAssets <= 5000) {
+            endingHtml += `<p style="color:#7ee787;"><strong>【结局：满载而归】</strong></p>
+                <p>你赚了 $${finalAssets}，相当成功了。</p>
+                <p>赌场经理亲自送你出门，眼神中带着一丝不甘。</p>`;
+        } else if (finalAssets <= 20000) {
+            endingHtml += `<p style="color:#ffd966;"><strong>【结局：赌场传奇】</strong></p>
+                <p>你狂赚 $${finalAssets}！赌场里流传着你的传说。</p>`;
+        } else {
+            endingHtml += `<p style="color:#ffd966;"><strong>【结局：赌神降临】</strong></p>
+                <p>你赚了 $${finalAssets}！赌场已经容不下你了。</p>
+                <p>从此江湖上多了一个传说，而赌场多了一条新规矩：'禁止你入内'。</p>`;
+        }
+
+        if (GameState.debt > 0) {
+            endingHtml += `<p style="color:#ff8a7a;">【警示】你仍有 $${GameState.debt} 的贷款未还清。</p>`;
+        }
+
+        if (GameState.unlockedAchievements.size > 0) {
+            endingHtml += `<div class="divider"></div><h4>成就总览</h4>`;
+            GameState.unlockedAchievements.forEach(a => {
+                endingHtml += `<span class="achievement-badge">🏆 ${a}</span>`;
+            });
+        }
+
+        document.getElementById('endingContent').innerHTML = endingHtml;
+        document.getElementById('mainGame').classList.add('hidden');
+        document.getElementById('setupScreen').classList.add('hidden');
+        document.getElementById('endingScreen').classList.remove('hidden');
+    }
+
+    // ==================== 启动与初始化 ====================
+    function startNewGame() {
+        // 重置状态
+        GameState.daysLeft = GameState.totalDays;
+        GameState.money = 1000;
+        GameState.debt = 0;
+        GameState.dayInterestRate = 5;
+        GameState.actionsLeft = 3;
+        GameState.activeLoans = [];
+        GameState.isBankrupt = false;
+        GameState.unlockedAchievements = new Set();
+        GameState.maxSingleStoneWin = 0;
+        GameState.everBorrowed = false;
+        GameState.gameOver = false;
+
+        pokerState = null;
+        stoneState = null;
+        doudizhuState = null;
+
+        // 切换界面
+        document.getElementById('setupScreen').classList.add('hidden');
+        document.getElementById('endingScreen').classList.add('hidden');
+        document.getElementById('mainGame').classList.remove('hidden');
+        hideDynamicPanel();
+        clearMessages();
+
+        bindMainMenu();
+        updateUI();
+        showMessage('欢迎来到赌场模拟器！你有 ' + GameState.totalDays + ' 天时间，每天 3 次行动。');
+        showMessage('目标：在期限内尽可能赚钱，并还清贷款。');
+        showMessage('点击上方按钮开始你的选择。');
+    }
+
+    // 难度/天数选择
+    let selectedDifficulty = 2;
+    let selectedDays = 30;
+
+    document.getElementById('difficultyButtons').addEventListener('click', (e) => {
+        if (e.target.dataset.diff) {
+            selectedDifficulty = parseInt(e.target.dataset.diff);
+            document.querySelectorAll('#difficultyButtons button').forEach(b => b.classList.remove('primary'));
+            e.target.classList.add('primary');
+        }
+    });
+
+    document.getElementById('daysButtons').addEventListener('click', (e) => {
+        if (e.target.dataset.days) {
+            selectedDays = parseInt(e.target.dataset.days);
+            document.querySelectorAll('#daysButtons button').forEach(b => b.classList.remove('primary'));
+            e.target.classList.add('primary');
+        }
+    });
+
+    document.getElementById('startGameBtn').addEventListener('click', () => {
+        GameState.difficulty = selectedDifficulty;
+        GameState.totalDays = selectedDays;
+        startNewGame();
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        document.getElementById('endingScreen').classList.add('hidden');
+        document.getElementById('setupScreen').classList.remove('hidden');
+        document.getElementById('mainGame').classList.add('hidden');
+    });
+
+    // 初始化显示
+    document.getElementById('setupScreen').classList.remove('hidden');
+    document.getElementById('mainGame').classList.add('hidden');
+    document.getElementById('endingScreen').classList.add('hidden');
+</script>
+</body>
+</html>

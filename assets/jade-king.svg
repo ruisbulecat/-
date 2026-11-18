@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="帝王绿翡翠">
+  <defs>
+    <radialGradient id="king-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#59d69a" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#59d69a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="king-a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8ffd9"/>
+      <stop offset="0.4" stop-color="#4fe09a"/>
+      <stop offset="1" stop-color="#0e7b46"/>
+    </linearGradient>
+    <linearGradient id="king-b" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a5e37"/>
+      <stop offset="0.55" stop-color="#27b873"/>
+      <stop offset="1" stop-color="#8dffc4"/>
+    </linearGradient>
+    <linearGradient id="king-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9e8b5"/>
+      <stop offset="0.5" stop-color="#e5c26b"/>
+      <stop offset="1" stop-color="#9a7425"/>
+    </linearGradient>
+    <filter id="king-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+  <ellipse cx="150" cy="152" rx="112" ry="104" fill="url(#king-glow)"/>
+  <path d="M150 38 232 86l18 92-64 84-72 0-64-84 18-92Z" fill="#0a2b1d" stroke="url(#king-gold)" stroke-width="3"/>
+  <path d="M150 54 216 94l15 80-54 72-54-72 15-80Z" fill="url(#king-b)" stroke="#0a3d27" stroke-width="2"/>
+  <path d="M150 54 182 116 150 246 118 116Z" fill="url(#king-a)" opacity="0.95"/>
+  <path d="M150 54 216 94 150 128Z" fill="#c9ffe2" opacity="0.7"/>
+  <path d="M216 94 231 174 150 246Z" fill="#0d6a3e" opacity="0.75"/>
+  <path d="M150 128 231 174 150 246Z" fill="url(#king-b)" opacity="0.65"/>
+  <path d="M118 116 84 94 69 174 150 246Z" fill="#0b5c37" opacity="0.6"/>
+  <path d="M150 128 84 94 69 174Z" fill="#6cf0ae" opacity="0.28"/>
+  <path d="M150 128 182 116 216 94 231 174 150 246Z" fill="none" stroke="#d2ffe6" stroke-opacity="0.45" stroke-width="1.4"/>
+  <path d="M150 128 118 116 84 94 69 174 150 246Z" fill="none" stroke="#d2ffe6" stroke-opacity="0.22" stroke-width="1.2"/>
+  <path d="M150 54v74M150 128l66-34M150 128l-66-34M150 128v118" fill="none" stroke="#ecfff5" stroke-opacity="0.38" stroke-width="1.2"/>
+  <ellipse cx="133" cy="104" rx="26" ry="14" fill="#ffffff" opacity="0.22" filter="url(#king-soft)" transform="rotate(-28 133 104)"/>
+  <g fill="url(#king-gold)">
+    <path d="M150 32l7 12-7 12-7-12Z"/>
+    <path d="M243 176l6 11-6 11-6-11Z"/>
+    <path d="M57 176l6 11-6 11-6-11Z"/>
+    <circle cx="150" cy="256" r="6"/>
+  </g>
+  <g fill="#ecfff5">
+    <path d="M226 63l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5Z"/>
+    <path d="M71 204l2 5.5 5.5 2-5.5 2-2 5.5-2-5.5-5.5-2 5.5-2Z"/>
+    <circle cx="224" cy="214" r="2.4" opacity="0.8"/>
+    <circle cx="92" cy="96" r="2" opacity="0.7"/>
+  </g>
+  <path d="M150 38 232 86l18 92-64 84-72 0-64-84 18-92Z" fill="none" stroke="#f9e8b5" stroke-opacity="0.35" stroke-width="1"/>
+  <ellipse cx="150" cy="266" rx="80" ry="13" fill="#000" opacity="0.32"/>
+</svg>

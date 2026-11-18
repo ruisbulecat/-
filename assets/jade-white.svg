@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="白砂皮原石">
+  <defs>
+    <radialGradient id="white-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#cfd8c8" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#cfd8c8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="white-body" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#f4f1e7"/>
+      <stop offset="0.42" stop-color="#d9d8c9"/>
+      <stop offset="0.78" stop-color="#b9beaf"/>
+      <stop offset="1" stop-color="#8f998b"/>
+    </linearGradient>
+    <linearGradient id="white-window" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#d8ffe9"/>
+      <stop offset="0.3" stop-color="#8fe9b8"/>
+      <stop offset="0.7" stop-color="#45b77b"/>
+      <stop offset="1" stop-color="#1f7f50"/>
+    </linearGradient>
+    <linearGradient id="white-edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="white-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+  <ellipse cx="150" cy="152" rx="110" ry="102" fill="url(#white-glow)"/>
+  <path d="M66 178 56 137l19-43 45-29 62-7 47 25 25 47-11 56-36 38-63 14-48-17Z" fill="url(#white-body)" stroke="#7f897b" stroke-width="2.5"/>
+  <path d="M75 169 67 138l18-38 42-26 57-6 43 23 22 43-10 50-32 34-58 13-44-15Z" fill="#c8cbbc" opacity="0.32"/>
+  <path d="M91 123c17-16 40-25 64-25" fill="none" stroke="url(#white-edge)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M176 232c7-9 15-15 26-18" fill="none" stroke="#707c6d" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round"/>
+  <path d="M163 113 196 106 224 128 227 162 207 193 174 199 149 176 147 142Z" fill="url(#white-window)" stroke="#62705f" stroke-width="2.4"/>
+  <path d="M164 114 196 107 224 128 197 144 197 197 174 198 149 175 177 157Z" fill="#b6ffd4" opacity="0.25"/>
+  <path d="M197 144 224 128 227 162 207 193 197 197Z" fill="#1a5d3d" opacity="0.35"/>
+  <path d="M164 114 177 157 147 142Z" fill="#f1fff6" opacity="0.42"/>
+  <path d="M177 157 197 144 197 197 174 198Z" fill="#0f6b45" opacity="0.2"/>
+  <path d="M163 113 196 106 224 128 227 162 207 193 174 199 149 176 147 142Z" fill="none" stroke="#e4fff0" stroke-opacity="0.55" stroke-width="1.2"/>
+  <ellipse cx="184" cy="137" rx="15" ry="10" fill="#ffffff" opacity="0.28" filter="url(#white-soft)" transform="rotate(-25 184 137)"/>
+  <g fill="#6c776a" opacity="0.45">
+    <circle cx="109" cy="136" r="2.2"/><circle cx="134" cy="116" r="1.7"/><circle cx="103" cy="171" r="1.8"/>
+    <circle cx="132" cy="204" r="2.4"/><circle cx="216" cy="100" r="1.5"/><circle cx="236" cy="191" r="1.8"/>
+    <circle cx="84" cy="196" r="1.5"/>
+  </g>
+  <g fill="#ffffff" opacity="0.42">
+    <circle cx="120" cy="151" r="1.2"/><circle cx="180" cy="217" r="1.3"/><circle cx="205" cy="117" r="1.1"/>
+  </g>
+  <path d="M72 145c-1-13 3-26 11-37" fill="none" stroke="#f7fff9" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="150" cy="254" rx="72" ry="11" fill="#000" opacity="0.25"/>
+</svg>
