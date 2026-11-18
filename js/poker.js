@@ -10,27 +10,86 @@
   const UI = C.UI;
   const Engine = C.PokerEngine;
   const CONF = C.DATA.POKER;
+  const LEVELS = C.DATA.POKER_LEVELS || [
+    { id: 'mid', name: '标准场', buyIn: 500, sb: 10, bb: 20, icon: '💴', desc: '500 买入 · 盲注 10 / 20' }
+  ];
 
   let S = null;
+  let lobbyOpen = false;
+
+  function levelById(id) {
+    return LEVELS.find((item) => item.id === id) || LEVELS[LEVELS.length - 1];
+  }
+
+  /* 先选场次，不消耗行动；入座后才扣行动和买入 */
+  function open() {
+    if (S || lobbyOpen) return;
+    lobbyOpen = true;
+    const state = C.state;
+    const cards = LEVELS.map((level) => {
+      const canAfford = state.money >= level.buyIn;
+      return `<button class="poker-level${canAfford ? '' : ' is-locked'}" type="button" data-poker-level="${level.id}" ${canAfford ? '' : 'disabled'}>
+        <span class="poker-level__icon">${level.icon}</span>
+        <span class="poker-level__main">
+          <strong>${level.name}</strong>
+          <small>${level.desc}</small>
+        </span>
+        <span class="poker-level__buyin">${util.fmt(level.buyIn)}<small>买入</small></span>
+        <span class="poker-level__go">${canAfford ? '入座 →' : '现金不足'}</span>
+      </button>`;
+    }).join('');
+
+    UI.openPanel({
+      kicker: 'CHOOSE YOUR TABLE',
+      title: '德州扑克 · 选择场次',
+      subtitle: '买入即带入上限，剩余现金不会上桌。入座消耗 1 次行动。',
+      wide: true,
+      body: `
+        <div class="poker-lobby" id="pokerLobby">
+          <div class="poker-lobby__cash">当前现金 <strong>${util.fmt(state.money)}</strong><span>今日行动 ${state.actions} / ${state.maxActions}</span></div>
+          <div class="poker-level-list">${cards}</div>
+          <p class="poker-lobby__hint">小场练手，大场赌命。10,000 元场有一枚隐藏成就，前提是你能赢。</p>
+        </div>
+      `,
+      onClosed: () => { lobbyOpen = false; }
+    });
+
+    const root = document.getElementById('pokerLobby') || document.querySelector('.game-panel__body');
+    if (root) {
+      root.querySelectorAll('[data-poker-level]').forEach((btn) => {
+        btn.addEventListener('click', () => startAt(btn.dataset.pokerLevel));
+      });
+    }
+  }
 
   function start() {
+    open();
+  }
+
+  function startAt(levelId) {
     if (S) return;
-    if (!C.Game.beginActivity({ action: 1, minMoney: CONF.minBuyIn, label: '德州扑克' })) return;
-
+    const level = levelById(levelId);
     const state = C.state;
-    const playerStack = Math.max(0, Math.floor(state.money));
-    const aiStack = util.clamp(
-      util.roundTo(Math.max(1000, playerStack * 0.8), 100),
-      1000,
-      5000
-    );
+    if (state.money < level.buyIn) {
+      UI.toast(`现金不足，${level.name}需要 ${util.fmt(level.buyIn)} 买入。`, 'lose');
+      return;
+    }
+    if (!C.Game.beginActivity({ action: 1, minMoney: level.buyIn, label: '德州扑克' })) return;
 
+    const cashBefore = state.money;
+    state.money -= level.buyIn;
+    const playerStack = level.buyIn;
+    const aiStack = level.buyIn;
+    UI.refresh();
     const deck = util.shuffle(C.cards.create(false));
     const playerHole = [deck.pop(), deck.pop()];
     const aiHole = [deck.pop(), deck.pop()];
 
     S = {
       deck,
+      level,
+      buyIn: level.buyIn,
+      cashBefore,
       hole: { player: playerHole, ai: aiHole },
       board: [],
       stacks: { player: playerStack, ai: aiStack },
@@ -39,7 +98,7 @@
       pot: 0,
       street: 0,
       currentBet: 0,
-      minRaise: CONF.bigBlind,
+      minRaise: level.bb,
       acted: { player: false, ai: false },
       turn: 'player',
       handOver: false,
@@ -57,7 +116,7 @@
     UI.openPanel({
       kicker: 'HEADS-UP HOLD\'EM',
       title: '德州扑克 · 单挑',
-      subtitle: `盲注 ${util.fmt(CONF.smallBlind)} / ${util.fmt(CONF.bigBlind)} · 你 ${util.fmt(playerStack)} · 庄家 ${util.fmt(aiStack)}`,
+      subtitle: `${level.name} · 盲注 ${util.fmt(level.sb)} / ${util.fmt(level.bb)} · 你 ${util.fmt(playerStack)} · 庄家 ${util.fmt(aiStack)}`,
       size: 'wide',
       wide: true,
       body: '<div id="pokerRoot"></div>',
@@ -75,15 +134,15 @@
   }
 
   function postBlinds() {
-    const sb = Math.min(CONF.smallBlind, S.stacks.player);
-    const bb = Math.min(CONF.bigBlind, S.stacks.ai);
+    const sb = Math.min(S.level.sb, S.stacks.player);
+    const bb = Math.min(S.level.bb, S.stacks.ai);
     S.stacks.player -= sb;
     S.bets.player += sb;
     S.stacks.ai -= bb;
     S.bets.ai += bb;
     S.pot = sb + bb;
     S.currentBet = Math.max(sb, bb);
-    S.minRaise = CONF.bigBlind;
+    S.minRaise = S.level.bb;
     S.acted.player = false;
     S.acted.ai = false;
     addLog(`你下小盲 ${util.fmt(sb)}，庄家下大盲 ${util.fmt(bb)}。`);
@@ -193,8 +252,8 @@
     const toCall = Math.max(0, S.currentBet - S.bets.player);
     const maxTarget = S.bets.player + S.stacks.player;
     const minTarget = Math.min(S.currentBet + S.minRaise, maxTarget);
-    const halfTarget = Math.min(S.currentBet + Math.max(CONF.bigBlind, Math.round(S.pot * 0.5)), maxTarget);
-    const potTarget = Math.min(S.currentBet + Math.max(CONF.bigBlind, S.pot), maxTarget);
+    const halfTarget = Math.min(S.currentBet + Math.max(S.level.bb, Math.round(S.pot * 0.5)), maxTarget);
+    const potTarget = Math.min(S.currentBet + Math.max(S.level.bb, S.pot), maxTarget);
     const list = [];
     const seen = new Set();
 
@@ -222,7 +281,7 @@
   }
 
   function endControlsHTML() {
-    const canReplay = C.state.actions > 0 && C.state.money >= CONF.minBuyIn && !C.state.gameOver;
+    const canReplay = C.state.actions > 0 && C.state.money >= S.level.buyIn && !C.state.gameOver;
     return `
       <button class="btn btn--ghost" type="button" data-poker="leave">离开牌桌</button>
       <button class="btn btn--primary" type="button" data-poker="replay" ${canReplay ? '' : 'disabled'}>再来一局（1 行动）</button>
@@ -264,8 +323,9 @@
           return;
         }
         if (action === 'replay') {
+          const levelId = S.level.id;
           closeTable();
-          setTimeout(start, 120);
+          setTimeout(() => startAt(levelId), 160);
           return;
         }
         if (S.handOver || S.busy || S.paused || S.turn !== 'player') return;
@@ -453,7 +513,7 @@
 
     S.bets = { player: 0, ai: 0 };
     S.currentBet = 0;
-    S.minRaise = CONF.bigBlind;
+    S.minRaise = S.level.bb;
     S.acted = { player: false, ai: false };
     S.turn = 'ai';
     C.sound.play('deal');
@@ -523,7 +583,7 @@
   function settle() {
     if (!S) return;
     const state = C.state;
-    state.money = Math.max(0, Math.round(S.stacks.player));
+    state.money = Math.max(0, Math.round((S.cashBefore || 0) - S.buyIn + S.stacks.player));
     State.bumpStat('maxCash', state.money);
 
     if (S.result && S.result.winner === 'player') {
@@ -531,6 +591,7 @@
       State.unlock('first_win');
       State.unlock('poker_win');
       if (S.result.evPlayer && S.result.evPlayer.cat >= 5) State.unlock('poker_strong');
+      if (S.level && S.level.buyIn >= 10000) State.unlock('poker_high_roller');
       if (S.result.amount > 0) {
         C.sound.play(S.result.amount >= 500 ? 'bigwin' : 'win');
         UI.toast(`你赢了 ${util.fmtSigned(S.result.amount)}`, 'win');
@@ -674,6 +735,9 @@
 
   C.Poker = {
     start,
+    open,
+    startAt,
+    levels: LEVELS,
     isActive: () => !!S
   };
 })(window.Casino = window.Casino || {});

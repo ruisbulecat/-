@@ -255,6 +255,8 @@
         <div class="ending__stat"><span>牌局胜场</span><strong>${state.stats.pokerWins + state.stats.ddzWins}</strong></div>
         <div class="ending__stat"><span>油田利润</span><strong class="${state.stats.oilProfit < 0 ? 'is-red' : state.stats.oilProfit > 0 ? 'is-gold' : ''}">${util.fmt(state.stats.oilProfit)}</strong></div>
         <div class="ending__stat"><span>原油产出</span><strong>${state.stats.oilBarrels} 桶</strong></div>
+        <div class="ending__stat"><span>酒馆胜场</span><strong>${state.stats.liarWins}</strong></div>
+        <div class="ending__stat"><span>轮盘胜场</span><strong>${state.stats.rouletteWins}</strong></div>
       </div>
       <div class="ending__achievements">
         <h3>成就 · ${unlocked.length} / ${achievements.length}</h3>
@@ -273,6 +275,12 @@
     document.getElementById('btnStone').addEventListener('click', () => C.Stone.start());
     document.getElementById('btnDoudizhu').addEventListener('click', () => C.Doudizhu.start());
     document.getElementById('btnLoan').addEventListener('click', () => C.Loans.open());
+    const liarBtn = document.getElementById('btnLiar');
+    if (liarBtn) liarBtn.addEventListener('click', () => C.Liar.open());
+    const rouletteBtn = document.getElementById('btnRoulette');
+    if (rouletteBtn) rouletteBtn.addEventListener('click', () => C.Roulette.open());
+    const lanBtn = document.getElementById('btnLan');
+    if (lanBtn) lanBtn.addEventListener('click', () => C.Lan.open());
     const oilBtn = document.getElementById('btnOil');
     if (oilBtn) oilBtn.addEventListener('click', () => C.Oil.start());
     document.getElementById('btnEndDay').addEventListener('click', endDay);
@@ -324,13 +332,13 @@
     UI.showScreen('setup');
     UI.refresh();
 
-    // 开发预览钩子：?dev=main|poker|stone|ddz|loan|oil|ending
+    // 开发预览钩子：?dev=main|poker|stone|ddz|loan|oil|liar|roulette|lan|ending
     const params = new URLSearchParams(window.location.search);
     const dev = params.get('dev');
     if (dev) {
       setTimeout(() => {
         startNewGame(2, 15);
-        if (dev === 'poker') C.Poker.start();
+        if (dev === 'poker') C.Poker.startAt('mid');
         else if (dev === 'stone') C.Stone.start();
         else if (dev === 'ddz') C.Doudizhu.start();
         else if (dev === 'loan') C.Loans.open();
@@ -338,7 +346,10 @@
           C.storage.set(C.Oil.STORAGE_KEY, true);
           UI.refresh();
           C.Oil.start({ free: true });
-        } else if (dev === 'ending') endGame('time');
+        } else if (dev === 'liar') C.Liar.startSolo(2);
+        else if (dev === 'roulette') C.Roulette.startSolo();
+        else if (dev === 'lan') C.Lan.open();
+        else if (dev === 'ending') endGame('time');
       }, 120);
     }
   }

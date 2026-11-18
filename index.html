@@ -78,6 +78,19 @@
       <path d="M5 21 10 4h4l5 17M3 21h18"/>
       <path d="M8.4 10h7.2M7.4 14.5h9.2M12 4v17M9.2 21l2.8-7 2.8 7"/>
     </symbol>
+    <symbol id="icon-mask" viewBox="0 0 24 24">
+      <path d="M4 5h16v7a8 8 0 0 1-16 0V5Z"/>
+      <path d="M7.5 9.5h.01M16.5 9.5h.01M8 14c1.2 1.5 2.5 2 4 2s2.8-.5 4-2"/>
+      <path d="M4 5 2 8M20 5l2 3"/>
+    </symbol>
+    <symbol id="icon-gun" viewBox="0 0 24 24">
+      <path d="M3 10h15l3 2v3h-8l-1 5H8l1-5H5l-2-2v-3Z"/>
+      <path d="M7 10V8h6M16 12h.01"/>
+    </symbol>
+    <symbol id="icon-wifi" viewBox="0 0 24 24">
+      <path d="M3 9a14 14 0 0 1 18 0M6.5 12.5a9 9 0 0 1 11 0M10 16a4 4 0 0 1 4 0"/>
+      <circle cx="12" cy="19" r="1"/>
+    </symbol>
   </svg>
 
   <div class="ambient" aria-hidden="true">
@@ -264,8 +277,8 @@
                   <span class="action-card__cost">1 行动</span>
                 </span>
                 <strong class="action-card__name">德州扑克</strong>
-                <span class="action-card__desc">单挑庄家 · 完整四轮下注</span>
-                <span class="action-card__meta"><span>最低 $20</span><span>真牌型</span></span>
+                <span class="action-card__desc">单挑庄家 · 多种场次 · 完整四轮下注</span>
+                <span class="action-card__meta"><span>100 / 1,000 / 10,000 场</span><span>真牌型</span></span>
               </button>
 
               <button class="action-card action-card--stone" id="btnStone" type="button">
@@ -288,6 +301,26 @@
                 <span class="action-card__meta"><span>底注 $100</span><span>需 $200</span></span>
               </button>
 
+              <button class="action-card action-card--liar" id="btnLiar" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-mask"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">骗子酒馆</strong>
+                <span class="action-card__desc">出牌、吹牛、掀桌 · 最后活着的人赢</span>
+                <span class="action-card__meta"><span>底注 $250</span><span>2-4 人</span><span>可联机</span></span>
+              </button>
+
+              <button class="action-card action-card--roulette" id="btnRoulette" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-gun"></use></svg></span>
+                  <span class="action-card__cost">1 行动</span>
+                </span>
+                <strong class="action-card__name">恶魔轮盘赌</strong>
+                <span class="action-card__desc">实弹与空包 · 道具、手铐、锯子 · 1v1</span>
+                <span class="action-card__meta"><span>底注 $250</span><span>双人</span><span>可联机</span></span>
+              </button>
+
               <button class="action-card action-card--loan" id="btnLoan" type="button">
                 <span class="action-card__top">
                   <span class="action-card__icon"><svg class="icon"><use href="#icon-bank"></use></svg></span>
@@ -296,6 +329,16 @@
                 <strong class="action-card__name">银行贷款</strong>
                 <span class="action-card__desc">用明天的钱，赌今天的命</span>
                 <span class="action-card__meta"><span>日息 5% 起</span><span>到期自动扣</span></span>
+              </button>
+
+              <button class="action-card action-card--lan" id="btnLan" type="button">
+                <span class="action-card__top">
+                  <span class="action-card__icon"><svg class="icon"><use href="#icon-wifi"></use></svg></span>
+                  <span class="action-card__cost action-card__cost--free">不耗行动</span>
+                </span>
+                <strong class="action-card__name">局域网联机</strong>
+                <span class="action-card__desc">同一 Wi-Fi 开房 · 骗子酒馆 / 恶魔轮盘赌</span>
+                <span class="action-card__meta"><span>2-4 人</span><span>友谊赛</span><span>需启动本地服务器</span></span>
               </button>
 
               <button class="action-card action-card--oil hidden" id="btnOil" type="button">
@@ -386,6 +429,10 @@
   <script src="js/doudizhu.js"></script>
   <script src="js/loans.js"></script>
   <script src="js/oil.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/liar.js"></script>
+  <script src="js/roulette.js"></script>
+  <script src="js/lan.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

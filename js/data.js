@@ -107,6 +107,51 @@
       aiEmoji: '🤖'
     },
 
+    /* 德州扑克场次：买入即带入上限，盲注随场次放大 */
+    POKER_LEVELS: [
+      { id: 'micro', name: '零钱场', buyIn: 20, sb: 1, bb: 2, icon: '🪙', desc: '20 买入 · 盲注 1 / 2', tone: 'green' },
+      { id: 'low', name: '100 元场', buyIn: 100, sb: 5, bb: 10, icon: '💵', desc: '100 买入 · 盲注 5 / 10', tone: 'gold' },
+      { id: 'mid', name: '500 元场', buyIn: 500, sb: 10, bb: 20, icon: '💴', desc: '500 买入 · 盲注 10 / 20', tone: 'gold' },
+      { id: 'high', name: '1,000 元场', buyIn: 1000, sb: 20, bb: 40, icon: '💰', desc: '1,000 买入 · 盲注 20 / 40', tone: 'orange' },
+      { id: 'vip', name: '10,000 元场', buyIn: 10000, sb: 100, bb: 200, icon: '👑', desc: '10,000 买入 · 盲注 100 / 200', tone: 'red' }
+    ],
+
+    /* 骗子酒馆：2-4 人，剩最后一人获胜 */
+    LIAR: {
+      ante: 250,
+      minMoney: 250,
+      lives: 2,
+      handSize: 5,
+      maxPlay: 3,
+      houseCut: 0.1,
+      opponents: [
+        { name: '老 K', emoji: '🎩' },
+        { name: '阿珍', emoji: '💃' },
+        { name: '醉汉', emoji: '🥃' }
+      ]
+    },
+
+    /* 恶魔轮盘赌：1v1，实弹 / 空包 + 道具 */
+    ROULETTE: {
+      ante: 250,
+      minMoney: 250,
+      maxHp: 4,
+      startHp: 3,
+      houseCut: 0.1,
+      items: [
+        { id: 'cig', name: '香烟', icon: '🚬', desc: '恢复 1 点生命' },
+        { id: 'glass', name: '放大镜', icon: '🔍', desc: '查看当前弹壳' },
+        { id: 'beer', name: '啤酒', icon: '🍺', desc: '退掉当前弹壳' },
+        { id: 'cuffs', name: '手铐', icon: '⛓️', desc: '对手跳过下一回合' },
+        { id: 'saw', name: '锯子', icon: '🪚', desc: '下一枪伤害 ×2' }
+      ]
+    },
+
+    LAN: {
+      maxPlayers: 4,
+      pollMs: 700
+    },
+
     DDZ: {
       baseBet: 100,
       minMoney: 200,
@@ -159,7 +204,25 @@
 
       /* ---- 难度 ---- */
       clear_hard: { name: '硬骨头', desc: '在困难或更高难度下，以正的净资产收场。', icon: '🔥' },
-      clear_hell: { name: '地狱归来', desc: '在地狱难度下，以正的净资产活着离开。', icon: '💀' }
+      clear_hell: { name: '地狱归来', desc: '在地狱难度下，以正的净资产活着离开。', icon: '💀' },
+
+      /* ---- 骗子酒馆 ---- */
+      liar_win: { name: '酒馆常胜', desc: '赢下一局骗子酒馆。', icon: '🍻' },
+      liar_bluff: { name: '弥天大谎', desc: '带着至少一次诈唬赢下骗子酒馆。', icon: '🤥' },
+      liar_flawless: { name: '一滴血都没掉', desc: '满血赢下一局骗子酒馆。', icon: '🛡️', secret: true },
+
+      /* ---- 恶魔轮盘赌 ---- */
+      roulette_win: { name: '与恶魔对赌', desc: '赢下一局恶魔轮盘赌。', icon: '🔫' },
+      roulette_last: { name: '最后一枪', desc: '只剩 1 点生命时赢下恶魔轮盘赌。', icon: '💀', secret: true },
+      roulette_saw: { name: '锯短了', desc: '用锯子打出双倍伤害并赢下这一局。', icon: '🪚', secret: true },
+
+      /* ---- 局域网 ---- */
+      lan_first: { name: '局域网来客', desc: '完成第一局局域网联机游戏。', icon: '📡', secret: true },
+      lan_win: { name: '局域网之王', desc: '在局域网联机中赢下一局。', icon: '👑', secret: true },
+      lan_host: { name: '开房的人', desc: '作为房主在局域网里开出一局游戏。', icon: '🔑', secret: true },
+
+      /* ---- 高额德州 ---- */
+      poker_high_roller: { name: '万元桌的客人', desc: '在 10,000 元场赢下一手德州扑克。', icon: '💎', secret: true }
     },
 
     STREET_NAMES: ['翻牌前', '翻牌圈', '转牌圈', '河牌圈', '摊牌']

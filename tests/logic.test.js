@@ -8,7 +8,7 @@ const vm = require('vm');
 global.window = global;
 
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/data.js', 'js/core.js', 'js/state.js', 'js/poker-engine.js', 'js/doudizhu-rules.js', 'js/oil.js']) {
+for (const file of ['js/data.js', 'js/core.js', 'js/state.js', 'js/poker-engine.js', 'js/doudizhu-rules.js', 'js/oil.js', 'js/liar.js', 'js/roulette.js', 'js/poker.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename: file });
 }
 
@@ -277,6 +277,131 @@ console.log('\n[Oil field generation]');
   check('secret oil achievement is hidden', C.DATA.ACHIEVEMENTS.oil_secret && C.DATA.ACHIEVEMENTS.oil_secret.secret === true);
   check('oil achievements exist', ['oil_first', 'oil_gusher', 'oil_baron', 'oil_deep', 'oil_dry', 'oil_blowout'].every((id) => !!C.DATA.ACHIEVEMENTS[id]));
   check('difficulty achievements exist', ['clear_hard', 'clear_hell'].every((id) => !!C.DATA.ACHIEVEMENTS[id]));
+}
+
+console.log('\n[Poker stakes]');
+{
+  const levels = C.DATA.POKER_LEVELS;
+  check('poker has five stake levels', levels.length === 5, levels.length);
+  check('poker includes 100 / 1,000 / 10,000 tables', [100, 1000, 10000].every((buyIn) => levels.some((l) => l.buyIn === buyIn)));
+  const sorted = levels.every((l, i) => i === 0 || (l.buyIn > levels[i - 1].buyIn && l.bb >= l.sb));
+  check('poker levels increase buy-in and blinds', sorted);
+  check('poker exports stake levels', C.Poker && C.Poker.levels.length === 5);
+}
+
+console.log('\n[Liar tavern rules]');
+{
+  const Liar = C.Liar;
+  function liarPlayers() {
+    return [
+      { id: 'p0', name: '你', avatar: '🧑', isAI: false, lives: 2, alive: true, hand: [], bluffed: false },
+      { id: 'p1', name: '老 K', avatar: '🎩', isAI: true, lives: 2, alive: true, hand: [], bluffed: false }
+    ];
+  }
+  function resetLiar(state, target) {
+    state.phase = 'playing';
+    state.turn = 0;
+    state.target = target || 'A';
+    state.pile = null;
+    state.reveal = null;
+    state.players[0].lives = 2;
+    state.players[1].lives = 2;
+    state.players[0].alive = true;
+    state.players[1].alive = true;
+    state.players[0].hand = cardsFrom('AS 2H');
+    state.players[1].hand = cardsFrom('3S 4H');
+  }
+
+  const state = Liar.createState(liarPlayers(), { mode: 'solo', ante: 250, pot: 500, houseCut: 0.1 });
+  resetLiar(state);
+
+  check('liar rejects out-of-turn actions', !Liar.applyAction(state, 'p1', { type: 'play', cards: [state.players[1].hand[0].uid] }).ok);
+  check('liar rejects empty plays', !Liar.applyAction(state, 'p0', { type: 'play', cards: [] }).ok);
+
+  const play = Liar.applyAction(state, 'p0', { type: 'play', cards: [state.players[0].hand[0].uid] });
+  check('liar accepts a truthful play', play.ok && state.pile && state.pile.count === 1);
+  check('liar advances turn after play', state.players[state.turn].id === 'p1');
+  check('liar suspects cannot challenge own pile', !Liar.applyAction(state, 'p0', { type: 'challenge' }).ok);
+
+  const challenge = Liar.applyAction(state, 'p1', { type: 'challenge' });
+  check('liar challenge reveals truth', challenge.ok && challenge.reveal.truthful === true);
+  check('truthful challenge costs challenger one life', state.players[1].lives === 1, state.players[1].lives);
+  check('truthful challenge keeps actor alive', state.players[0].lives === 2);
+
+  resetLiar(state);
+  state.players[0].hand = cardsFrom('2S 3H');
+  Liar.applyAction(state, 'p0', { type: 'play', cards: [state.players[0].hand[0].uid] });
+  const lieChallenge = Liar.applyAction(state, 'p1', { type: 'challenge' });
+  check('lying play is exposed', lieChallenge.ok && lieChallenge.reveal.truthful === false);
+  check('lying actor loses one life', state.players[0].lives === 1, state.players[0].lives);
+
+  resetLiar(state);
+  state.players[0].lives = 1;
+  state.players[0].hand = cardsFrom('2S 3H');
+  Liar.applyAction(state, 'p0', { type: 'play', cards: [state.players[0].hand[0].uid] });
+  const elimination = Liar.applyAction(state, 'p1', { type: 'challenge' });
+  check('liar ends when one player remains', elimination.result === true && state.phase === 'result' && state.winnerId === 'p1', JSON.stringify({ phase: state.phase, winner: state.winnerId }));
+
+  const view = Liar.viewFor(state, 'p1');
+  const p0view = view.players.find((p) => p.id === 'p0');
+  check('liar view exposes only hand counts for opponents', p0view && p0view.handCount === 1 && p0view.hand === undefined);
+  check('liar view exposes own hand only', view.myHand.length === state.players[1].hand.length);
+
+  const four = Liar.createState([
+    { id: 'a', name: 'A', avatar: '🧑', isAI: false, lives: 2, alive: true, hand: [], bluffed: false },
+    { id: 'b', name: 'B', avatar: '🎩', isAI: true, lives: 2, alive: true, hand: [], bluffed: false },
+    { id: 'c', name: 'C', avatar: '💃', isAI: true, lives: 2, alive: true, hand: [], bluffed: false },
+    { id: 'd', name: 'D', avatar: '🥃', isAI: true, lives: 2, alive: true, hand: [], bluffed: false }
+  ], { mode: 'solo', ante: 250, pot: 1000, houseCut: 0.1 });
+  check('liar supports four players', four.players.length === 4 && four.players.every((p) => p.hand.length === 5));
+}
+
+console.log('\n[Devil roulette rules]');
+{
+  const R = C.Roulette;
+  function roulettePlayers() {
+    return [
+      { id: 'p0', name: '你', avatar: '🧑', isAI: false, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false },
+      { id: 'p1', name: '恶魔', avatar: '😈', isAI: true, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false }
+    ];
+  }
+  function resetRoulette(state, shells) {
+    state.phase = 'playing';
+    state.turn = 0;
+    state.index = 0;
+    state.sawed = false;
+    state.shells = shells.map((live) => ({ live, knownTo: [] }));
+    state.players.forEach((p) => { p.alive = true; p.hp = 3; p.skipNext = false; p.items = []; });
+    state.players[0].items = ['glass', 'saw', 'cuffs', 'cig'];
+  }
+
+  const state = R.createState(roulettePlayers(), { mode: 'solo', ante: 250, pot: 500, houseCut: 0.1 });
+  resetRoulette(state, [true, false]);
+
+  check('roulette starts shell unknown', R.viewFor(state, 'p0').shell === null);
+  check('magnifier reveals shell only to user', R.useItem(state, 'p0', 'glass').ok && R.viewFor(state, 'p0').shell.live === true && R.viewFor(state, 'p1').shell === null);
+  check('saw doubles next shot', R.useItem(state, 'p0', 'saw').ok && R.viewFor(state, 'p0').sawed === true);
+  R.shoot(state, 'p0', 'p1');
+  check('sawed live shot deals two damage', state.players[1].hp === 1, state.players[1].hp);
+  check('shot passes turn', state.players[state.turn].id === 'p1');
+
+  resetRoulette(state, [false, true]);
+  R.shoot(state, 'p0', 'p0');
+  check('blank self-shot keeps turn', state.players[state.turn].id === 'p0' && state.players[0].hp === 3);
+
+  resetRoulette(state, [false, true]);
+  check('cuffs item can be used', R.useItem(state, 'p0', 'cuffs').ok && state.players[1].skipNext === true);
+  R.shoot(state, 'p0', 'p1');
+  check('cuffs skip opponent turn', state.players[state.turn].id === 'p0');
+  check('cuffed opponent is cleared', state.players[1].skipNext === false);
+
+  resetRoulette(state, [true]);
+  state.players[1].hp = 1;
+  R.shoot(state, 'p0', 'p1');
+  check('roulette ends when hp reaches zero', state.phase === 'result' && state.winnerId === 'p0', JSON.stringify({ phase: state.phase, winner: state.winnerId }));
+  check('roulette exposes only own items', R.viewFor(state, 'p0').myItems.length === state.players[0].items.length && R.viewFor(state, 'p1').players.find((p) => p.id === 'p0').items === undefined);
+
+  check('secret liar/roulette/lan achievements are hidden', ['liar_flawless', 'roulette_last', 'roulette_saw', 'lan_first', 'lan_win', 'lan_host', 'poker_high_roller'].every((id) => C.DATA.ACHIEVEMENTS[id] && C.DATA.ACHIEVEMENTS[id].secret === true));
 }
 
 console.log('\n----------------------------------------');

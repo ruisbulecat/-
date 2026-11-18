@@ -38,7 +38,13 @@
       oilBestLease: 0,
       oilBarrels: 0,
       oilLayers: 0,
-      oilBlowouts: 0
+      oilBlowouts: 0,
+      liarGames: 0,
+      liarWins: 0,
+      rouletteGames: 0,
+      rouletteWins: 0,
+      lanGames: 0,
+      lanWins: 0
     }
   };
 
@@ -79,7 +85,13 @@
       oilBestLease: 0,
       oilBarrels: 0,
       oilLayers: 0,
-      oilBlowouts: 0
+      oilBlowouts: 0,
+      liarGames: 0,
+      liarWins: 0,
+      rouletteGames: 0,
+      rouletteWins: 0,
+      lanGames: 0,
+      lanWins: 0
     };
   }
 

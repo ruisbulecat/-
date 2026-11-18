@@ -65,6 +65,9 @@
     dom.btnDoudizhu = $('#btnDoudizhu');
     dom.btnLoan = $('#btnLoan');
     dom.btnOil = $('#btnOil');
+    dom.btnLiar = $('#btnLiar');
+    dom.btnRoulette = $('#btnRoulette');
+    dom.btnLan = $('#btnLan');
     dom.btnEndDay = $('#btnEndDay');
     dom.soundBtn = $('#soundBtn');
     dom.achieveBtn = $('#achieveBtn');
@@ -231,6 +234,9 @@
     dom.btnStone.disabled = disabled || state.actions <= 0;
     dom.btnDoudizhu.disabled = disabled || state.actions <= 0 || state.money < 200;
     dom.btnLoan.disabled = disabled;
+    if (dom.btnLiar) dom.btnLiar.disabled = disabled || state.actions <= 0 || state.money < 250;
+    if (dom.btnRoulette) dom.btnRoulette.disabled = disabled || state.actions <= 0 || state.money < 250;
+    if (dom.btnLan) dom.btnLan.disabled = locked || state.inMinigame;
     if (dom.btnOil) {
       const unlocked = !!(C.Oil && C.Oil.isUnlocked());
       const oilMin = C.DATA.OIL ? C.DATA.OIL.minMoney : 250;
@@ -467,10 +473,10 @@
       <div class="help-section">
         <h3><svg class="icon"><use href="#icon-spade"></use></svg>德州扑克</h3>
         <ul>
-          <li>单挑庄家，盲注 $10 / $20，共四轮下注：翻牌前、翻牌、转牌、河牌。</li>
-          <li>你可以过牌、跟注、加注或弃牌。AI 会根据自己的胜率与底池赔率行动，难度越高越难骗。</li>
-          <li>摊牌时用 7 张牌里最好的 5 张比大小。牌型从高到低：同花顺、四条、葫芦、同花、顺子、三条、两对、一对、高牌。</li>
-          <li>本局结束时，你的筹码就是新的现金。最低 $20 才能入座。</li>
+          <li>先选场次：零钱场 / 100 元场 / 500 元场 / 1,000 元场 / 10,000 元场。买入就是带上桌的筹码，剩余现金留在账上。</li>
+          <li>单挑庄家，盲注随场次放大（例如 100 元场 5 / 10，1,000 元场 20 / 40）。</li>
+          <li>四轮下注：翻牌前、翻牌、转牌、河牌。摊牌时用 7 张牌里最好的 5 张比大小。</li>
+          <li>本局结束时，桌上的筹码会回到现金；10,000 元场赢下一手有隐藏成就。</li>
         </ul>
       </div>
       <div class="help-section">
@@ -488,6 +494,33 @@
           <li>地主赢收双倍，农民赢收单倍；输了按同样倍率扣钱。中途退出视为认输。</li>
           <li>支持单张、对子、三张、三带一、三带二、顺子、连对、飞机、炸弹、王炸。</li>
           <li>“提示”会帮你选一手能管上的牌。自由出牌时不能“不出”。</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3><svg class="icon"><use href="#icon-mask"></use></svg>骗子酒馆</h3>
+        <ul>
+          <li>2-4 人，每人 2 条命、5 张手牌。每轮随机一张目标牌，轮到你时可以打出 1-3 张并声称它们是目标牌。</li>
+          <li>下一位玩家可以继续出牌，也可以“质疑”上一手。质疑后只翻开最后一手：如果全是目标牌，质疑者掉 1 条命；如果有假，出牌者掉 1 条命。</li>
+          <li>命掉光就出局，最后活着的人拿走底池的 90%。单人局 1 行动 + $250 底注。</li>
+          <li>单人可以打 2 人局或 4 人局；局域网支持 2-4 人，友谊赛不计现金。</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3><svg class="icon"><use href="#icon-gun"></use></svg>恶魔轮盘赌</h3>
+        <ul>
+          <li>1v1，双方 3 点生命。每轮装填若干实弹和空包，数量公开、顺序保密。</li>
+          <li>轮到你时可以先使用道具，再朝自己或对手开枪。空包打自己可以保留回合，实弹打自己会掉血。</li>
+          <li>道具：香烟回血、放大镜看当前弹壳、啤酒退弹、手铐锁对手一回合、锯子让下一枪伤害翻倍。</li>
+          <li>单人局 1 行动 + $250 底注；局域网为双人友谊赛，不计现金。</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3><svg class="icon"><use href="#icon-wifi"></use></svg>局域网联机</h3>
+        <ul>
+          <li>在项目目录运行 <code>node server/lan-server.js</code>，用终端打印的局域网地址打开游戏。</li>
+          <li>同一 Wi-Fi 下，一人创建房间，其他人输入 4 位房间码加入；房主选游戏并开始。</li>
+          <li>联机支持骗子酒馆（2-4 人）和恶魔轮盘赌（2 人），是友谊赛，不计现金和行动，但有隐藏联机成就。</li>
+          <li>服务器只是内存房间中继，关闭服务或所有人离开后房间即消失。</li>
         </ul>
       </div>
       <div class="help-section">

@@ -206,7 +206,12 @@ async function main() {
   // ---------- 扑克 ----------
   await evaluate('Casino.state.actions = 3; Casino.UI.refresh()');
   await click('#btnPoker');
-  await sleep(250);
+  await sleep(300);
+  check('poker lobby opens', await evaluate('!!document.getElementById("pokerLobby")'));
+  check('poker offers multiple stakes', (await evaluate('document.querySelectorAll("[data-poker-level]").length')) >= 5);
+  check('poker lobby does not cost action', (await evaluate('Casino.state.actions')) === 3);
+  await click('[data-poker-level="micro"]');
+  await sleep(300);
   check('poker panel opens', await evaluate('!!document.querySelector("#pokerRoot")'));
   check('poker costs one action', (await evaluate('Casino.state.actions')) === 2);
   // 连续跟注/过牌，直到摊牌或需要新的操作
@@ -300,6 +305,42 @@ async function main() {
   check('achievement panel lists achievements', (await evaluate('document.querySelector(".ach-panel")?.innerText.length || 0')) > 80);
   await click('[data-modal-confirm]');
   await sleep(200);
+
+  // ---------- 骗子酒馆 / 恶魔轮盘赌（单人入座） ----------
+  await evaluate('Casino.state.actions = 3; Casino.UI.refresh()');
+  await click('#btnLiar');
+  await sleep(300);
+  check('liar lobby opens', await evaluate('!!document.getElementById("liarLobby")'));
+  check('liar offers solo 2p and 4p', (await evaluate('document.querySelectorAll("[data-liar-solo]").length')) === 2);
+  await click('[data-liar-solo="2"]');
+  await sleep(600);
+  check('liar table renders', await evaluate('!!document.querySelector(".liar-table")'));
+  check('liar deals five cards', (await evaluate('document.querySelectorAll("[data-liar-card]").length')) === 5);
+  check('liar costs one action', (await evaluate('Casino.state.actions')) === 2);
+  await evaluate('Casino.UI.requestClose()');
+  await sleep(250);
+  check('liar forfeit confirmation appears', await evaluate('!!document.querySelector("[data-modal-confirm]")'));
+  await click('[data-modal-confirm]');
+  await sleep(400);
+  check('liar panel closes', await evaluate('!document.querySelector("#liarRoot")'));
+  check('liar game recorded', (await evaluate('Casino.state.stats.liarGames')) === 1);
+
+  await evaluate('Casino.state.actions = 3; Casino.UI.refresh()');
+  await click('#btnRoulette');
+  await sleep(300);
+  check('roulette lobby opens', await evaluate('!!document.getElementById("rouletteLobby")'));
+  await click('[data-roulette-solo]');
+  await sleep(600);
+  check('roulette table renders', await evaluate('!!document.querySelector(".roulette-table")'));
+  check('roulette shows shells and items', (await evaluate('document.querySelectorAll(".roulette-shell").length')) > 0);
+  check('roulette costs one action', (await evaluate('Casino.state.actions')) === 2);
+  await evaluate('Casino.UI.requestClose()');
+  await sleep(250);
+  check('roulette forfeit confirmation appears', await evaluate('!!document.querySelector("[data-modal-confirm]")'));
+  await click('[data-modal-confirm]');
+  await sleep(400);
+  check('roulette panel closes', await evaluate('!document.querySelector("#rouletteRoot")'));
+  check('roulette game recorded', (await evaluate('Casino.state.stats.rouletteGames')) === 1);
 
   // ---------- 结束一天 ----------
   const dayBefore = await evaluate('Casino.state.day');
