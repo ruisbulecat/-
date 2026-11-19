@@ -13,7 +13,8 @@ const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.PORT) || 8787;
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 8;
+const MAX_ROULETTE_PLAYERS = 4;
 const ROOM_TTL = 2 * 60 * 60 * 1000;
 
 const rooms = new Map();
@@ -59,7 +60,7 @@ function readBody(req) {
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > 256 * 1024) {
+      if (size > 1024 * 1024) {
         reject(new Error('body too large'));
         req.destroy();
         return;
@@ -83,6 +84,50 @@ function cleanName(name, fallback) {
   return text || fallback || '玩家';
 }
 
+function cleanGame(value) {
+  if (value === 'roulette') return 'roulette';
+  if (value === 'liar') return 'liar';
+  return null;
+}
+
+function cleanCapacity(value, game) {
+  const max = game === 'roulette' ? MAX_ROULETTE_PLAYERS : MAX_PLAYERS;
+  const fallback = game === 'roulette' ? 2 : 4;
+  const n = value == null || value === '' ? NaN : Number(value);
+  return Math.max(2, Math.min(max, Number.isFinite(n) ? Math.round(n) : fallback));
+}
+
+function cleanEchoCount(value) {
+  const n = Number(value);
+  return n >= 1 && n <= 3 ? Math.round(n) : 1;
+}
+
+/* 聊天消息只允许纯文字和浏览器生成的位图 data URL */
+function cleanChatPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const text = String(payload.text == null ? '' : payload.text)
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+    .trim()
+    .slice(0, 500);
+  let image = typeof payload.image === 'string' ? payload.image : '';
+  if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(image) || image.length > 400000) {
+    image = '';
+  }
+  if (!text && !image) return null;
+  return { text, image };
+}
+
+function applyRoomConfig(room, payload) {
+  if (!payload || typeof payload !== 'object') return;
+  const game = cleanGame(payload.game) || room.game;
+  if (game) {
+    room.game = game;
+    room.maxPlayers = cleanCapacity(payload.maxPlayers == null ? room.maxPlayers : payload.maxPlayers, game);
+  }
+  if (payload.liarMode) room.liarMode = payload.liarMode === 'echo' ? 'echo' : 'classic';
+  if (payload.echoCount != null) room.echoCount = cleanEchoCount(payload.echoCount);
+}
+
 function roomCode() {
   let code = randomId(4);
   while (rooms.has(code)) code = randomId(4);
@@ -99,6 +144,9 @@ function publicRoom(room, after) {
     hostId: room.hostId,
     started: room.started,
     game: room.game,
+    maxPlayers: room.maxPlayers,
+    liarMode: room.liarMode,
+    echoCount: room.echoCount,
     seq: room.seq,
     players: room.players.map((p) => ({ id: p.id, name: p.name, host: p.id === room.hostId })),
     messages: room.messages.filter((m) => m.seq > after)
@@ -120,7 +168,10 @@ function pushMessage(room, from, type, to, payload) {
   room.touchedAt = Date.now();
   if (type === 'start') {
     room.started = true;
-    if (payload && payload.game) room.game = payload.game;
+    if (payload && payload.game) room.game = cleanGame(payload.game) || room.game;
+    applyRoomConfig(room, payload);
+  } else if (type === 'config') {
+    applyRoomConfig(room, payload);
   }
   return message;
 }
@@ -141,6 +192,7 @@ async function handleApi(req, res, url) {
       name: cleanName(body.name, '房主'),
       token
     };
+    const game = cleanGame(body.game);
     const room = {
       id,
       hostId: player.id,
@@ -148,7 +200,10 @@ async function handleApi(req, res, url) {
       messages: [],
       seq: 0,
       started: false,
-      game: null,
+      game,
+      maxPlayers: cleanCapacity(body.maxPlayers, game),
+      liarMode: body.liarMode === 'echo' ? 'echo' : 'classic',
+      echoCount: cleanEchoCount(body.echoCount),
       createdAt: Date.now(),
       touchedAt: Date.now()
     };
@@ -160,6 +215,10 @@ async function handleApi(req, res, url) {
       token,
       hostId: room.hostId,
       seq: room.seq,
+      game: room.game,
+      maxPlayers: room.maxPlayers,
+      liarMode: room.liarMode,
+      echoCount: room.echoCount,
       players: publicRoom(room, 0).players
     });
   }
@@ -169,7 +228,7 @@ async function handleApi(req, res, url) {
     const room = rooms.get(String(body.roomId || '').toUpperCase().trim());
     if (!room) return sendJson(res, 404, { ok: false, error: '房间不存在。' });
     if (room.started) return sendJson(res, 409, { ok: false, error: '牌局已经开始了。' });
-    if (room.players.length >= MAX_PLAYERS) return sendJson(res, 409, { ok: false, error: '房间满了。' });
+    if (room.players.length >= room.maxPlayers) return sendJson(res, 409, { ok: false, error: '房间满了。' });
     const token = newToken();
     const player = {
       id: randomId(6, 'abcdefghijkmnpqrstuvwxyz23456789'),
@@ -185,6 +244,10 @@ async function handleApi(req, res, url) {
       token,
       hostId: room.hostId,
       seq: room.seq,
+      game: room.game,
+      maxPlayers: room.maxPlayers,
+      liarMode: room.liarMode,
+      echoCount: room.echoCount,
       players: publicRoom(room, 0).players
     });
   }
@@ -210,11 +273,23 @@ async function handleApi(req, res, url) {
     if (type === 'start' && player.id !== room.hostId) {
       return sendJson(res, 403, { ok: false, error: '只有房主可以开始游戏。' });
     }
+    if (type === 'system') {
+      return sendJson(res, 400, { ok: false, error: '系统消息不能由客户端发送。' });
+    }
+    if (type === 'config') {
+      if (player.id !== room.hostId) return sendJson(res, 403, { ok: false, error: '只有房主可以修改房间设置。' });
+      if (room.started) return sendJson(res, 409, { ok: false, error: '牌局已经开始了。' });
+    }
+    let payload = body.payload == null ? null : body.payload;
+    if (type === 'chat') {
+      payload = cleanChatPayload(payload);
+      if (!payload) return sendJson(res, 400, { ok: false, error: '消息为空或格式不正确。' });
+    }
     const to = body.to ? String(body.to).slice(0, 24) : null;
     if (to && !room.players.some((p) => p.id === to)) {
       return sendJson(res, 400, { ok: false, error: '目标玩家不在房间。' });
     }
-    const message = pushMessage(room, player.id, type, to, body.payload || null);
+    const message = pushMessage(room, player.id, type, to, payload);
     return sendJson(res, 200, { ok: true, seq: message.seq });
   }
 

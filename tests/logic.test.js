@@ -8,7 +8,7 @@ const vm = require('vm');
 global.window = global;
 
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/data.js', 'js/core.js', 'js/state.js', 'js/poker-engine.js', 'js/doudizhu-rules.js', 'js/oil.js', 'js/liar.js', 'js/roulette.js', 'js/poker.js']) {
+for (const file of ['js/data.js', 'js/core.js', 'js/state.js', 'js/poker-engine.js', 'js/doudizhu-rules.js', 'js/oil.js', 'js/chat.js', 'js/liar.js', 'js/roulette.js', 'js/poker.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename: file });
 }
 
@@ -387,6 +387,27 @@ console.log('\n[Liar tavern rules]');
     { id: 'd', name: 'D', avatar: '🥃', isAI: true, lives: 2, alive: true, hand: [], bluffed: false }
   ], { mode: 'solo', ante: 250, pot: 1000, houseCut: 0.1 });
   check('liar supports four players', four.players.length === 4 && four.players.every((p) => p.hand.length === 5));
+
+  check('liar clamps custom player counts', Liar.clampPlayers(1) === 2 && Liar.clampPlayers(99) === 8 && Liar.clampPlayers(5) === 5);
+  check('liar scales deck for eight players', Liar.deckCopiesFor(8) === 3 && Liar.buildLiarDeck(3).length === 50, Liar.deckCopiesFor(8));
+  const eightPlayers = [];
+  for (let i = 0; i < 8; i++) {
+    eightPlayers.push({ id: 'p' + i, name: '玩家' + i, avatar: '🎩', isAI: i > 0, lives: 2, alive: true, hand: [], bluffed: false });
+  }
+  const eight = Liar.createState(eightPlayers, { mode: 'solo', ante: 250, pot: 2000, houseCut: 0.1 });
+  check('liar supports eight players with five cards each', eight.players.length === 8 && eight.players.every((p) => p.hand.length === 5), eight.players.map((p) => p.hand.length).join(','));
+}
+
+console.log('\n[Chat messages]');
+{
+  const Chat = C.Chat;
+  check('chat trims text', Chat.cleanText('  hello  ') === 'hello');
+  check('chat caps text length', Chat.cleanText('x'.repeat(500)).length === 300);
+  check('chat strips control chars', Chat.cleanText('a\u0000b\u001fc') === 'abc');
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  check('chat accepts raster image data urls', Chat.isSafeImage(png) === true);
+  check('chat rejects svg and remote urls', !Chat.isSafeImage('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=') && !Chat.isSafeImage('https://example.com/a.png'));
+  check('chat rejects oversized images', !Chat.isSafeImage('data:image/png;base64,' + 'A'.repeat(200000)));
 }
 
 console.log('\n[Devil roulette rules]');
@@ -433,6 +454,34 @@ console.log('\n[Devil roulette rules]');
   R.shoot(state, 'p0', 'p1');
   check('roulette ends when hp reaches zero', state.phase === 'result' && state.winnerId === 'p0', JSON.stringify({ phase: state.phase, winner: state.winnerId }));
   check('roulette exposes only own items', R.viewFor(state, 'p0').myItems.length === state.players[0].items.length && R.viewFor(state, 'p1').players.find((p) => p.id === 'p0').items === undefined);
+
+  check('roulette clamps custom player counts', R.clampPlayers(1) === 2 && R.clampPlayers(9) === 4 && R.clampPlayers(3) === 3);
+  const four = R.createState([
+    { id: 'a', name: 'A', avatar: '🧑', isAI: false, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false },
+    { id: 'b', name: 'B', avatar: '😈', isAI: true, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false },
+    { id: 'c', name: 'C', avatar: '🤖', isAI: true, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false },
+    { id: 'd', name: 'D', avatar: '💀', isAI: true, hp: 3, maxHp: 4, alive: true, items: [], skipNext: false }
+  ], { mode: 'solo', ante: 250, pot: 1000, houseCut: 0.1 });
+  four.phase = 'playing';
+  four.turn = 0;
+  four.index = 0;
+  four.sawed = false;
+  four.shells = [
+    { live: true, knownTo: [] },
+    { live: true, knownTo: [] },
+    { live: true, knownTo: [] }
+  ];
+  four.players.forEach((p) => { p.alive = true; p.hp = 3; p.items = []; p.skipNext = false; });
+  four.players[1].hp = 1;
+  R.shoot(four, 'a', 'b');
+  check('four-player roulette continues after first elimination', four.phase === 'playing' && !four.players[1].alive, JSON.stringify({ phase: four.phase, alive: four.players.map((p) => p.alive) }));
+  check('turn skips the eliminated player', four.players[four.turn].id === 'c', four.players[four.turn].id);
+  four.players[3].hp = 1;
+  R.shoot(four, 'c', 'd');
+  check('four-player roulette continues with two alive', four.phase === 'playing' && four.players.filter((p) => p.alive).length === 2);
+  four.players[2].hp = 1;
+  R.shoot(four, 'a', 'c');
+  check('four-player roulette ends with one survivor', four.phase === 'result' && four.winnerId === 'a', JSON.stringify({ phase: four.phase, winner: four.winnerId }));
 
   check('secret liar/roulette/lan achievements are hidden', ['liar_flawless', 'roulette_last', 'roulette_saw', 'lan_first', 'lan_win', 'lan_host', 'poker_high_roller'].every((id) => C.DATA.ACHIEVEMENTS[id] && C.DATA.ACHIEVEMENTS[id].secret === true));
 }

@@ -6,6 +6,7 @@
   'use strict';
 
   const listeners = { message: [], players: [], status: [] };
+  const DEFAULT_MAX_PLAYERS = (C.DATA && C.DATA.LAN && C.DATA.LAN.maxPlayers) || 8;
 
   const state = {
     roomId: null,
@@ -16,6 +17,9 @@
     players: [],
     started: false,
     game: null,
+    liarMode: 'classic',
+    echoCount: 1,
+    maxPlayers: DEFAULT_MAX_PLAYERS,
     connected: false,
     timer: null,
     polling: false,
@@ -71,23 +75,41 @@
     state.hostId = data.hostId;
     state.seq = Number(data.seq) || 0;
     state.players = data.players || [];
+    state.game = data.game || null;
+    state.liarMode = data.liarMode || 'classic';
+    state.echoCount = Number(data.echoCount) || 1;
+    state.maxPlayers = Number(data.maxPlayers) || state.maxPlayers || DEFAULT_MAX_PLAYERS;
     state.connected = true;
   }
 
-  async function create(name) {
+  function roomPayload(roomId) {
+    return {
+      players: state.players,
+      hostId: state.hostId,
+      roomId,
+      maxPlayers: state.maxPlayers,
+      game: state.game,
+      liarMode: state.liarMode,
+      echoCount: state.echoCount
+    };
+  }
+
+  async function create(name, options) {
     stopPolling();
-    const data = await request('/api/create', { method: 'POST', body: { name } });
+    const body = Object.assign({ name }, options || {});
+    const data = await request('/api/create', { method: 'POST', body });
     applyIdentity(data);
-    emit('players', { players: state.players, hostId: state.hostId, roomId: state.roomId });
+    emit('players', roomPayload(state.roomId));
     startPolling();
     return data;
   }
 
-  async function join(roomId, name) {
+  async function join(roomId, name, options) {
     stopPolling();
-    const data = await request('/api/join', { method: 'POST', body: { roomId: roomId, name: name } });
+    const body = Object.assign({ roomId, name }, options || {});
+    const data = await request('/api/join', { method: 'POST', body });
     applyIdentity(data);
-    emit('players', { players: state.players, hostId: state.hostId, roomId: state.roomId });
+    emit('players', roomPayload(state.roomId));
     startPolling();
     return data;
   }
@@ -117,15 +139,19 @@
       );
       if (state.roomId !== roomId || state.token !== token) return;
       const wasConnected = state.connected;
-      const previousHost = state.hostId;
       const before = JSON.stringify(state.players);
+      const beforeConfig = [state.hostId, state.game, state.liarMode, state.echoCount, state.maxPlayers].join('|');
       state.connected = true;
       state.hostId = data.hostId;
       state.started = !!data.started;
-      state.game = data.game || state.game;
+      state.game = data.game || null;
+      state.liarMode = data.liarMode || 'classic';
+      state.echoCount = data.echoCount == null ? state.echoCount : (Number(data.echoCount) || 1);
+      state.maxPlayers = Number(data.maxPlayers) || state.maxPlayers;
       state.players = data.players || [];
-      if (JSON.stringify(state.players) !== before || data.hostId !== previousHost) {
-        emit('players', { players: state.players, hostId: state.hostId, roomId: roomId });
+      const afterConfig = [state.hostId, state.game, state.liarMode, state.echoCount, state.maxPlayers].join('|');
+      if (JSON.stringify(state.players) !== before || afterConfig !== beforeConfig) {
+        emit('players', roomPayload(roomId));
       }
       const messages = data.messages || [];
       for (const msg of messages) {
@@ -169,6 +195,9 @@
     state.players = [];
     state.started = false;
     state.game = null;
+    state.liarMode = 'classic';
+    state.echoCount = 1;
+    state.maxPlayers = DEFAULT_MAX_PLAYERS;
     state.connected = false;
     if (roomId && token) {
       try {
@@ -201,6 +230,10 @@
     get hostId() { return state.hostId; },
     get players() { return state.players.slice(); },
     get connected() { return state.connected; },
+    get maxPlayers() { return state.maxPlayers; },
+    get game() { return state.game; },
+    get liarMode() { return state.liarMode; },
+    get echoCount() { return state.echoCount; },
     get serverUrl() { return state.roomId ? window.location.origin : ''; }
   };
 })(window.Casino = window.Casino || {});

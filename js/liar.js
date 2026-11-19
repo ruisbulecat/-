@@ -1,6 +1,6 @@
 /* ============================================================
    赌徒模拟器 · 骗子酒馆（Liar's Tavern）
-   单人（1v1 / 1v3）与局域网多人（2-4 人）。
+   单人（2-8 人，其余为 AI）与局域网多人（2-8 人）。
    ============================================================ */
 (function (C) {
   'use strict';
@@ -11,16 +11,40 @@
   const DATA = C.DATA;
   const CONF = DATA.LIAR;
   const RANKS = (CONF.ranks && CONF.ranks.length) ? CONF.ranks : ['J', 'Q', 'K', 'A'];
+  const MIN_PLAYERS = Math.max(2, Number(CONF.minPlayers) || 2);
+  const MAX_PLAYERS = Math.max(MIN_PLAYERS, Number(CONF.maxPlayers) || 4);
+  const AVATARS = (CONF.avatars && CONF.avatars.length)
+    ? CONF.avatars
+    : ['🧑', '🎩', '💃', '🥃', '🕵️', '💋', '🤡', '🧔'];
 
   let S = null;
   let lobbyOpen = false;
   let lobbyEchoMode = false;
   let lobbyEchoCount = 1;
+  let lobbyPlayers = clampPlayers(C.storage.get('casino.liarPlayers', CONF.defaultPlayers || 4));
+
+  function clampPlayers(value) {
+    const fallback = Number(CONF.defaultPlayers) || 4;
+    return util.clamp(Math.round(Number(value) || fallback), MIN_PLAYERS, MAX_PLAYERS);
+  }
+
+  function playerCountOptions() {
+    const out = [];
+    for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n++) out.push(n);
+    return out;
+  }
+
+  /* 8 个人各 5 张牌就需要 40 张，2 副 J-A 不够，所以按人数加牌堆 */
+  function deckCopiesFor(playerCount) {
+    const perDeck = DATA.SUITS.length * RANKS.length;
+    const need = clampPlayers(playerCount) * CONF.handSize + 2;
+    return Math.max(Number(CONF.decks) || 1, Math.ceil(Math.max(0, need - (CONF.wildcards || 0)) / perDeck));
+  }
 
   /* 两副 J-A 牌 + 两张万能牌；回响牌是每轮额外生成的公开目标牌 */
-  function buildLiarDeck() {
+  function buildLiarDeck(copiesArg) {
     const deck = [];
-    const copies = Math.max(1, CONF.decks || 1);
+    const copies = Math.max(1, Number(copiesArg) || CONF.decks || 1);
     for (let d = 0; d < copies; d++) {
       for (let s = 0; s < DATA.SUITS.length; s++) {
         const suit = DATA.SUITS[s];
@@ -96,6 +120,11 @@
           </div>
           <div class="liar-settings">
             <div class="liar-setting-row">
+              <span class="liar-setting-label">入座人数</span>
+              ${playerCountOptions().map((n) => `<button class="liar-chip${lobbyPlayers === n ? ' is-active' : ''}" type="button" data-liar-count="${n}" aria-pressed="${lobbyPlayers === n}">${n} 人</button>`).join('')}
+              <small>你 + ${lobbyPlayers - 1} 个 AI；联机房间也按这个人数入座</small>
+            </div>
+            <div class="liar-setting-row">
               <span class="liar-setting-label">酒馆模式</span>
               <button class="liar-chip${lobbyEchoMode ? '' : ' is-active'}" type="button" data-liar-mode="classic">经典</button>
               <button class="liar-chip${lobbyEchoMode ? ' is-active' : ''}" type="button" data-liar-mode="echo">回响</button>
@@ -110,24 +139,19 @@
             ` : ''}
           </div>
           <div class="liar-lobby__modes">
-            <button class="liar-mode" type="button" data-liar-solo="2" ${canPlay ? '' : 'disabled'}>
+            <button class="liar-mode" type="button" data-liar-solo="${lobbyPlayers}" ${canPlay ? '' : 'disabled'}>
               <span class="liar-mode__icon">🤖</span>
-              <span><strong>单人 · 2 人局</strong><small>你 vs 1 个 AI · 底注 ${util.fmt(ante)}</small></span>
-              <em>1 行动</em>
-            </button>
-            <button class="liar-mode" type="button" data-liar-solo="4" ${canPlay ? '' : 'disabled'}>
-              <span class="liar-mode__icon">🎭</span>
-              <span><strong>单人 · 4 人局</strong><small>你 vs 3 个 AI · 底注 ${util.fmt(ante)}</small></span>
+              <span><strong>单人 · ${lobbyPlayers} 人局</strong><small>你 vs ${lobbyPlayers - 1} 个 AI · 底注 ${util.fmt(ante)}${lobbyPlayers >= 5 ? ` · 底池 ${util.fmt(ante * lobbyPlayers)}` : ''}</small></span>
               <em>1 行动</em>
             </button>
             <button class="liar-mode" type="button" data-liar-lan ${lanAvailable ? '' : 'disabled'}>
               <span class="liar-mode__icon">📡</span>
-              <span><strong>本地 / 局域网联机</strong><small>${lanAvailable ? '2-4 人 · 友谊赛不计现金' : '双击 start-lan.bat 后可用'}</small></span>
+              <span><strong>本地 / 局域网联机</strong><small>${lanAvailable ? `${MIN_PLAYERS}-${MAX_PLAYERS} 人自定义人数 · 可发文字 / 表情 / 图片` : '双击 start-lan.bat 后可用'}</small></span>
               <em>${lanAvailable ? '联机' : '不可用'}</em>
             </button>
           </div>
           ${canPlay ? '' : `<p class="liar-lobby__warn">${reason}，暂时不能入座单人局。</p>`}
-          <p class="liar-lobby__hint">单人局会消耗 1 次行动和 ${util.fmt(ante)} 底注；赢家拿走底池的 90%。联机为友谊赛。</p>
+          <p class="liar-lobby__hint">单人局会消耗 1 次行动和 ${util.fmt(ante)} 底注；赢家拿走底池的 90%（${MAX_PLAYERS} 人局底池 ${util.fmt(ante * MAX_PLAYERS)}）。联机为友谊赛，牌桌旁自带聊天。</p>
         </div>
       `,
       onClosed: () => { lobbyOpen = false; }
@@ -135,6 +159,14 @@
 
     const root = document.getElementById('liarLobby') || document.querySelector('.game-panel__body');
     if (root) {
+      root.querySelectorAll('[data-liar-count]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          lobbyPlayers = clampPlayers(btn.dataset.liarCount);
+          C.storage.set('casino.liarPlayers', lobbyPlayers);
+          lobbyOpen = false;
+          open();
+        });
+      });
       root.querySelectorAll('[data-liar-solo]').forEach((btn) => {
         btn.addEventListener('click', () => startSolo(Number(btn.dataset.liarSolo), {
           echoMode: lobbyEchoMode,
@@ -159,7 +191,8 @@
       const lan = root.querySelector('[data-liar-lan]');
       if (lan) lan.addEventListener('click', () => C.Lan.open('liar', {
         liarMode: lobbyEchoMode ? 'echo' : 'classic',
-        echoCount: lobbyEchoCount
+        echoCount: lobbyEchoCount,
+        players: lobbyPlayers
       }));
     }
   }
@@ -183,10 +216,11 @@
   }
 
   function createState(players, opts) {
+    const playerCount = players.length;
     const state = {
       mode: opts.mode,
       players,
-      deck: buildLiarDeck(),
+      deck: buildLiarDeck(deckCopiesFor(playerCount)),
       discard: [],
       target: RANKS[0],
       turn: 0,
@@ -238,7 +272,7 @@
 
     let deck = util.shuffle(pool);
     const need = aliveCount(state) * CONF.handSize;
-    if (deck.length < need) deck = buildLiarDeck();
+    if (deck.length < need) deck = buildLiarDeck(deckCopiesFor(state.players.length));
 
     state.deck = deck;
     state.discard = [];
@@ -399,14 +433,20 @@
   function startSolo(count, options) {
     if (S) return;
     const opts = options || {};
+    const playerCount = clampPlayers(count);
     const ante = CONF.ante;
     if (!C.Game.beginActivity({ action: 1, minMoney: ante, label: '骗子酒馆' })) return;
     C.state.money -= ante;
     UI.refresh();
     const human = makePlayer('p0', '你', '🧑', false);
-    const ais = CONF.opponents.slice(0, Math.max(1, count - 1)).map((item, i) =>
-      makePlayer('p' + (i + 1), item.name, item.emoji, true)
-    );
+    const ais = [];
+    for (let i = 0; i < playerCount - 1; i++) {
+      const opponent = CONF.opponents[i] || {
+        name: `赌客 ${i + 2}`,
+        emoji: AVATARS[(i + 1) % AVATARS.length]
+      };
+      ais.push(makePlayer('p' + (i + 1), opponent.name, opponent.emoji, true));
+    }
     const players = [human].concat(ais);
     const echoMode = !!opts.echoMode;
     const echoMax = util.clamp(Number(opts.echoMax) || 1, 1, CONF.echoMax || 3);
@@ -414,13 +454,13 @@
     S = {
       mode: 'solo',
       myId: 'p0',
-      playerCount: count,
+      playerCount,
       echoMode,
       echoMax,
       state: createState(players, {
         mode: 'solo',
         ante,
-        pot: ante * count,
+        pot: ante * playerCount,
         houseCut: CONF.houseCut,
         echoMode,
         echoMax
@@ -432,12 +472,13 @@
       pending: false,
       aiTimer: null,
       settled: false,
-      netHandler: null
+      netHandler: null,
+      chat: null
     };
 
     openTable(
-      `单人 · ${count} 人局${echoMode ? ` · 回响 ${echoMax}` : ''}`,
-      `底注 ${util.fmt(ante)} · 你有 ${CONF.lives} 条命${echoMode ? ` · 每轮 ${echoMax} 张回响` : ''}`,
+      `单人 · ${playerCount} 人局${echoMode ? ` · 回响 ${echoMax}` : ''}`,
+      `底注 ${util.fmt(ante)} · 你有 ${CONF.lives} 条命 · ${playerCount - 1} 个 AI 对手${echoMode ? ` · 每轮 ${echoMax} 张回响` : ''}`,
       () => {
         S = null;
         C.Game.endActivity();
@@ -449,10 +490,15 @@
 
   function startMultiplayer(ctx) {
     if (S) return;
+    const roster = (ctx.players || []).slice(0, MAX_PLAYERS);
+    if (roster.length < MIN_PLAYERS) {
+      UI.toast(`骗子酒馆至少需要 ${MIN_PLAYERS} 名玩家。`, 'lose');
+      return;
+    }
     if (!C.Game.beginActivity({ action: 0, label: '局域网 · 骗子酒馆' })) return;
 
-    const players = (ctx.players || []).slice(0, CONF.maxPlayers || 4).map((p, i) =>
-      makePlayer(p.id, p.name || `玩家 ${i + 1}`, p.avatar || ['🧑', '🎩', '💃', '🥃'][i % 4], false)
+    const players = roster.map((p, i) =>
+      makePlayer(p.id, p.name || `玩家 ${i + 1}`, p.avatar || AVATARS[i % AVATARS.length], false)
     );
     const ante = 0;
     const role = ctx.role;
@@ -473,7 +519,8 @@
       pending: false,
       aiTimer: null,
       settled: false,
-      netHandler: null
+      netHandler: null,
+      chat: null
     };
 
     if (role === 'host') {
@@ -497,13 +544,34 @@
 
     openTable(
       role === 'host' ? '局域网 · 房主' : '局域网 · 联机',
-      `友谊赛 · 不计现金${echoMode ? ` · 回响 ${echoMax}` : ''} · 掉线视为离开`,
+      `${players.length} 人友谊赛 · 不计现金${echoMode ? ` · 回响 ${echoMax}` : ''} · 掉线视为离开 · 牌桌旁可直接聊天`,
       () => {
         if (S && S.netHandler) C.Net.off('message', S.netHandler);
+        if (S && S.chat) S.chat.destroy();
         S = null;
         C.Game.endActivity();
-      }
+      },
+      { chat: !!C.Chat }
     );
+
+    if (C.Chat) {
+      S.chat = C.Chat.mount(document.getElementById('liarChat'), {
+        selfId: ctx.myId,
+        send: (payload) => C.Net.send('chat', null, payload),
+        getPlayer: (id) => {
+          if (!S) return null;
+          if (S.state) {
+            const local = S.state.players.find((p) => p.id === id);
+            if (local) return local;
+          }
+          if (S.view) {
+            const remote = S.view.players.find((p) => p.id === id);
+            if (remote) return remote;
+          }
+          return null;
+        }
+      });
+    }
 
     if (role === 'host') {
       broadcast();
@@ -513,13 +581,17 @@
     }
   }
 
-  function openTable(kicker, subtitle, onClosed) {
+  function openTable(kicker, subtitle, onClosed, options) {
+    const opts = options || {};
+    const body = opts.chat
+      ? '<div class="liar-layout"><div id="liarRoot"></div><aside class="liar-chat-slot" id="liarChat"></aside></div>'
+      : '<div id="liarRoot"></div>';
     UI.openPanel({
       kicker: 'LIAR\'S TAVERN · ' + kicker,
       title: '骗子酒馆',
       subtitle,
       wide: true,
-      body: '<div id="liarRoot"></div>',
+      body,
       onClose: requestClose,
       onClosed
     });
@@ -539,6 +611,10 @@
 
   function handleNet(msg) {
     if (!S) return;
+    if (msg.type === 'chat' || msg.type === 'system') {
+      if (S.chat) S.chat.receive(msg);
+      return;
+    }
     if (S.mode === 'host' && msg.type === 'action') {
       const result = applyAction(S.state, msg.from, msg.payload && msg.payload.action);
       if (!result.ok) {
@@ -1106,6 +1182,10 @@
     viewFor,
     createState,
     applyAction,
-    buildLiarDeck
+    buildLiarDeck,
+    deckCopiesFor,
+    clampPlayers,
+    minPlayers: MIN_PLAYERS,
+    maxPlayers: MAX_PLAYERS
   };
 })(window.Casino = window.Casino || {});

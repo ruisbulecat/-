@@ -12,6 +12,7 @@ import json
 import mimetypes
 import os
 import random
+import re
 import secrets
 import socket
 import string
@@ -23,10 +24,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 PORT = int(os.environ.get('PORT', '8787'))
-MAX_PLAYERS = 4
+MAX_PLAYERS = 8
+MAX_ROULETTE_PLAYERS = 4
 ROOM_TTL = 2 * 60 * 60
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 PLAYER_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
+CHAT_IMAGE_RE = re.compile(r'^data:image/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$')
 
 ROOMS = {}
 ROOM_LOCK = threading.RLock()
@@ -55,6 +58,55 @@ def clean_name(value, fallback):
     return text or fallback
 
 
+def clean_game(value):
+    return value if value in ('liar', 'roulette') else None
+
+
+def clean_capacity(value, game):
+    maximum = MAX_ROULETTE_PLAYERS if game == 'roulette' else MAX_PLAYERS
+    fallback = 2 if game == 'roulette' else 4
+    try:
+        number = int(round(float(value)))
+    except (TypeError, ValueError):
+        number = fallback
+    return max(2, min(maximum, number))
+
+
+def clean_echo_count(value):
+    try:
+        number = int(round(float(value)))
+    except (TypeError, ValueError):
+        number = 1
+    return number if 1 <= number <= 3 else 1
+
+
+def clean_chat_payload(payload):
+    """聊天只允许纯文字和浏览器生成的位图 data URL。"""
+    if not isinstance(payload, dict):
+        return None
+    text = str(payload.get('text') or '')
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text).strip()[:500]
+    image = payload.get('image')
+    if not isinstance(image, str) or len(image) > 400000 or not CHAT_IMAGE_RE.match(image):
+        image = ''
+    if not text and not image:
+        return None
+    return {'text': text, 'image': image}
+
+
+def apply_room_config(room, payload):
+    if not isinstance(payload, dict):
+        return
+    game = clean_game(payload.get('game')) or room.get('game')
+    if game:
+        room['game'] = game
+        room['maxPlayers'] = clean_capacity(payload.get('maxPlayers', room.get('maxPlayers')), game)
+    if payload.get('liarMode'):
+        room['liarMode'] = 'echo' if payload['liarMode'] == 'echo' else 'classic'
+    if payload.get('echoCount') is not None:
+        room['echoCount'] = clean_echo_count(payload['echoCount'])
+
+
 def find_player(room, token):
     for player in room['players']:
         if player['token'] == token:
@@ -68,6 +120,9 @@ def public_room(room, after):
         'hostId': room['hostId'],
         'started': room['started'],
         'game': room['game'],
+        'maxPlayers': room['maxPlayers'],
+        'liarMode': room['liarMode'],
+        'echoCount': room['echoCount'],
         'seq': room['seq'],
         'players': [
             {'id': p['id'], 'name': p['name'], 'host': p['id'] == room['hostId']}
@@ -94,7 +149,10 @@ def push_message(room, source, msg_type, to, payload):
     if msg_type == 'start':
         room['started'] = True
         if isinstance(payload, dict) and payload.get('game'):
-            room['game'] = payload['game']
+            room['game'] = clean_game(payload['game']) or room['game']
+        apply_room_config(room, payload)
+    elif msg_type == 'config':
+        apply_room_config(room, payload)
     return message
 
 
@@ -144,7 +202,7 @@ class LanHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length') or 0)
         if length <= 0:
             return {}
-        if length > 256 * 1024:
+        if length > 1024 * 1024:
             raise ValueError('body too large')
         raw = self.rfile.read(length)
         return json.loads(raw.decode('utf-8'))
@@ -196,6 +254,7 @@ class LanHandler(BaseHTTPRequestHandler):
                 'name': clean_name(body.get('name'), '房主'),
                 'token': token,
             }
+            game = clean_game(body.get('game'))
             room = {
                 'id': code,
                 'hostId': player['id'],
@@ -203,7 +262,10 @@ class LanHandler(BaseHTTPRequestHandler):
                 'messages': [],
                 'seq': 0,
                 'started': False,
-                'game': None,
+                'game': game,
+                'maxPlayers': clean_capacity(body.get('maxPlayers'), game),
+                'liarMode': 'echo' if body.get('liarMode') == 'echo' else 'classic',
+                'echoCount': clean_echo_count(body.get('echoCount')),
                 'createdAt': time.time(),
                 'touchedAt': time.time(),
             }
@@ -215,6 +277,10 @@ class LanHandler(BaseHTTPRequestHandler):
                 'token': token,
                 'hostId': room['hostId'],
                 'seq': room['seq'],
+                'game': room['game'],
+                'maxPlayers': room['maxPlayers'],
+                'liarMode': room['liarMode'],
+                'echoCount': room['echoCount'],
                 'players': public_room(room, 0)['players'],
             })
 
@@ -228,7 +294,7 @@ class LanHandler(BaseHTTPRequestHandler):
             if room['started']:
                 self.send_json(409, {'ok': False, 'error': '牌局已经开始了。'})
                 return
-            if len(room['players']) >= MAX_PLAYERS:
+            if len(room['players']) >= room['maxPlayers']:
                 self.send_json(409, {'ok': False, 'error': '房间满了。'})
                 return
             token = secrets.token_hex(18)
@@ -248,6 +314,10 @@ class LanHandler(BaseHTTPRequestHandler):
                 'token': token,
                 'hostId': room['hostId'],
                 'seq': room['seq'],
+                'game': room['game'],
+                'maxPlayers': room['maxPlayers'],
+                'liarMode': room['liarMode'],
+                'echoCount': room['echoCount'],
                 'players': public_room(room, 0)['players'],
             })
 
@@ -288,13 +358,29 @@ class LanHandler(BaseHTTPRequestHandler):
             if msg_type == 'start' and player['id'] != room['hostId']:
                 self.send_json(403, {'ok': False, 'error': '只有房主可以开始游戏。'})
                 return
+            if msg_type == 'system':
+                self.send_json(400, {'ok': False, 'error': '系统消息不能由客户端发送。'})
+                return
+            if msg_type == 'config':
+                if player['id'] != room['hostId']:
+                    self.send_json(403, {'ok': False, 'error': '只有房主可以修改房间设置。'})
+                    return
+                if room['started']:
+                    self.send_json(409, {'ok': False, 'error': '牌局已经开始了。'})
+                    return
+            payload = body.get('payload')
+            if msg_type == 'chat':
+                payload = clean_chat_payload(payload)
+                if not payload:
+                    self.send_json(400, {'ok': False, 'error': '消息为空或格式不正确。'})
+                    return
             to = body.get('to')
             if to:
                 to = str(to)[:24]
                 if not any(p['id'] == to for p in room['players']):
                     self.send_json(400, {'ok': False, 'error': '目标玩家不在房间。'})
                     return
-            message = push_message(room, player['id'], msg_type, to, body.get('payload'))
+            message = push_message(room, player['id'], msg_type, to, payload)
             self.send_json(200, {'ok': True, 'seq': message['seq']})
 
     def handle_leave(self, body):

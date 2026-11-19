@@ -312,13 +312,46 @@ async function main() {
   await click('#btnLiar');
   await sleep(300);
   check('liar lobby opens', await evaluate('!!document.getElementById("liarLobby")'));
-  check('liar offers solo 2p and 4p', (await evaluate('document.querySelectorAll("[data-liar-solo]").length')) === 2);
+  check('liar offers a player-count picker', (await evaluate('document.querySelectorAll("[data-liar-count]").length')) === 7);
+  check('liar offers one solo seat button', (await evaluate('document.querySelectorAll("[data-liar-solo]").length')) === 1);
   check('liar offers classic and echo modes', (await evaluate('document.querySelectorAll("[data-liar-mode]").length')) === 2);
-  await click('[data-liar-solo="2"]');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await sleep(250);
+  await shot('liar-lobby');
+  await send('Emulation.clearDeviceMetricsOverride');
+  await sleep(150);
+  await click('[data-liar-count="8"]');
+  await sleep(350);
+  check('liar count selection sticks', await evaluate('document.querySelectorAll("[data-liar-count]")[6].classList.contains("is-active")'));
+  await click('[data-liar-solo]');
   await sleep(600);
   check('liar table renders', await evaluate('!!document.querySelector(".liar-table")'));
   check('liar deals five cards', (await evaluate('document.querySelectorAll("[data-liar-card]").length')) === 5);
+  check('liar seats seven AI opponents', (await evaluate('document.querySelectorAll(".liar-opponent").length')) === 7);
   check('liar costs one action', (await evaluate('Casino.state.actions')) === 2);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+  await sleep(250);
+  await shot('liar-8p');
+  await send('Emulation.clearDeviceMetricsOverride');
+
+  const chatMounted = await evaluate(`(() => {
+    const host = document.createElement('div');
+    host.id = 'chatTestHost';
+    document.body.appendChild(host);
+    window.__testChat = Casino.Chat.mount(host, {
+      selfId: 'p0',
+      send: () => Promise.resolve(),
+      getPlayer: (id) => ({ id, name: '对手', avatar: '🎩' })
+    });
+    __testChat.receive({ type: 'chat', from: 'p1', at: Date.now(), payload: { text: '你好 🍻' } });
+    __testChat.receive({ type: 'chat', from: 'p1', at: Date.now(), payload: { image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' } });
+    __testChat.receive({ type: 'chat', from: 'p1', payload: { image: 'javascript:alert(1)' } });
+    return true;
+  })()`);
+  check('chat panel mounts', chatMounted);
+  check('chat renders text and emoji', (await evaluate('document.querySelector("#chatTestHost .liar-chat__text")?.textContent || ""')).includes('🍻'));
+  check('chat renders one safe image only', (await evaluate('document.querySelectorAll("#chatTestHost .liar-chat__image").length')) === 1);
+  await evaluate('__testChat.destroy(); document.getElementById("chatTestHost").remove(); __testChat = null;');
   await evaluate('Casino.UI.requestClose()');
   await sleep(250);
   check('liar forfeit confirmation appears', await evaluate('!!document.querySelector("[data-modal-confirm]")'));
@@ -331,11 +364,22 @@ async function main() {
   await click('#btnRoulette');
   await sleep(300);
   check('roulette lobby opens', await evaluate('!!document.getElementById("rouletteLobby")'));
+  check('roulette offers a player-count picker', (await evaluate('document.querySelectorAll("[data-roulette-count]").length')) === 3);
+  await click('[data-roulette-count="4"]');
+  await sleep(350);
+  check('roulette count selection sticks', await evaluate('document.querySelectorAll("[data-roulette-count]")[2].classList.contains("is-active")'));
   await click('[data-roulette-solo]');
   await sleep(600);
   check('roulette table renders', await evaluate('!!document.querySelector(".roulette-table")'));
   check('roulette shows shells and items', (await evaluate('document.querySelectorAll(".roulette-shell").length')) > 0);
+  check('roulette seats three AI opponents', (await evaluate('document.querySelectorAll(".roulette-opponent").length')) === 3);
+  check('roulette offers a target for each opponent', (await evaluate('document.querySelectorAll("[data-roulette=\\"shoot\\"]").length')) === 3);
   check('roulette costs one action', (await evaluate('Casino.state.actions')) === 2);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await evaluate('document.getElementById("toastRoot").innerHTML = ""');
+  await sleep(250);
+  await shot('roulette-4p');
+  await send('Emulation.clearDeviceMetricsOverride');
   await evaluate('Casino.UI.requestClose()');
   await sleep(250);
   check('roulette forfeit confirmation appears', await evaluate('!!document.querySelector("[data-modal-confirm]")'));
@@ -343,6 +387,28 @@ async function main() {
   await sleep(400);
   check('roulette panel closes', await evaluate('!document.querySelector("#rouletteRoot")'));
   check('roulette game recorded', (await evaluate('Casino.state.stats.rouletteGames')) === 1);
+
+  // ---------- 局域网轮盘赌房间人数 ----------
+  await evaluate('Casino.Lan.open("roulette", { players: 4 })');
+  check('lan roulette lobby opens', await waitFor('!!document.querySelector("#lanName")', 6000));
+  await evaluate(`(() => {
+    const input = document.querySelector('#lanName');
+    input.value = '测试房主';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('[data-lan-create]').click();
+  })()`);
+  check('lan roulette room opens', await waitFor('!!document.querySelector(".lan-room__code strong")', 8000));
+  check('lan roulette room shows four seats', (await evaluate('document.querySelector(".lan-room__game small").textContent')).includes('1 / 4'));
+  check('lan roulette offers 2-4 player chips', (await evaluate('document.querySelectorAll("[data-lan-roulette-count]").length')) === 3);
+  check('lan roulette waits for four players', (await evaluate('document.querySelector("[data-lan-start]").textContent')).includes('还差 3 人'));
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await evaluate('document.getElementById("toastRoot").innerHTML = ""');
+  await sleep(250);
+  await shot('lan-room');
+  await send('Emulation.clearDeviceMetricsOverride');
+  await evaluate('Casino.UI.requestClose()');
+  await sleep(500);
+  check('lan roulette room closes', await evaluate('!document.getElementById("lanLobby")'));
 
   // ---------- 结束一天 ----------
   const dayBefore = await evaluate('Casino.state.day');

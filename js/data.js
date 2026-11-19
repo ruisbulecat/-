@@ -116,7 +116,7 @@
       { id: 'vip', name: '10,000 元场', buyIn: 10000, sb: 100, bb: 200, icon: '👑', desc: '10,000 买入 · 盲注 100 / 200', tone: 'red' }
     ],
 
-    /* 骗子酒馆：2-4 人，剩最后一人获胜；只用 J-A + 两张万能牌 */
+    /* 骗子酒馆：2-8 人自定义人数，剩最后一人获胜；只用 J-A + 两张万能牌 */
     LIAR: {
       ante: 250,
       minMoney: 250,
@@ -128,20 +128,56 @@
       decks: 2,
       wildcards: 2,
       echoMax: 3,
+      minPlayers: 2,
+      maxPlayers: 8,
+      defaultPlayers: 4,
+      avatars: ['🧑', '🎩', '💃', '🥃', '🕵️', '💋', '🤡', '🧔'],
       opponents: [
         { name: '老 K', emoji: '🎩' },
         { name: '阿珍', emoji: '💃' },
-        { name: '醉汉', emoji: '🥃' }
+        { name: '醉汉', emoji: '🥃' },
+        { name: '独眼杰克', emoji: '🕵️' },
+        { name: '红发莉娜', emoji: '💋' },
+        { name: '小丑', emoji: '🤡' },
+        { name: '教父', emoji: '🧔' },
+        { name: '哑巴', emoji: '😶' }
       ]
     },
 
-    /* 恶魔轮盘赌：1v1，实弹 / 空包 + 道具 */
+    /* 牌桌聊天：文字长度 / 图片压缩 / 表情面板 */
+    CHAT: {
+      maxText: 300,
+      maxHistory: 80,
+      imageMaxSide: 560,
+      imageQuality: 0.68,
+      imageMaxChars: 180000,
+      minIntervalMs: 450,
+      emojis: [
+        '😀', '😄', '😁', '😂', '🤣', '😊', '😉', '😎',
+        '😏', '😅', '😭', '😡', '🤔', '😱', '🤫', '😴',
+        '🥺', '😈', '🤡', '👻', '💀', '🤖', '🎩', '💃',
+        '🕵️', '🧔', '🥃', '🍻', '🍺', '🍷', '🃏', '🎲',
+        '🔥', '💥', '✨', '🎉', '❤️', '💔', '👍', '👎',
+        '👏', '🙏', '🤝', '👀', '💯', '✅', '❓', '🤑'
+      ]
+    },
+
+    /* 恶魔轮盘赌：2-4 人，实弹 / 空包 + 道具，最后活着的人赢 */
     ROULETTE: {
       ante: 250,
       minMoney: 250,
       maxHp: 4,
       startHp: 3,
       houseCut: 0.1,
+      minPlayers: 2,
+      maxPlayers: 4,
+      defaultPlayers: 2,
+      avatars: ['🧑', '😈', '🤖', '💀'],
+      opponents: [
+        { name: '恶魔', emoji: '😈' },
+        { name: '机械师', emoji: '🤖' },
+        { name: '掘墓人', emoji: '💀' }
+      ],
       items: [
         { id: 'cig', name: '香烟', icon: '🚬', desc: '恢复 1 点生命' },
         { id: 'glass', name: '放大镜', icon: '🔍', desc: '查看当前弹壳' },
@@ -152,7 +188,7 @@
     },
 
     LAN: {
-      maxPlayers: 4,
+      maxPlayers: 8,
       pollMs: 700
     },
 

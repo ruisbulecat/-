@@ -1,6 +1,6 @@
 /* ============================================================
    赌徒模拟器 · 恶魔轮盘赌（Buckshot Roulette）
-   单人 1v1 与局域网双人。实弹 / 空包 / 道具 / 手铐 / 锯子。
+   单人 2-4 人（AI 补位）与局域网 2-4 人。实弹 / 空包 / 道具 / 手铐 / 锯子。
    ============================================================ */
 (function (C) {
   'use strict';
@@ -11,9 +11,26 @@
   const DATA = C.DATA;
   const CONF = DATA.ROULETTE;
   const ITEMS = CONF.items;
+  const MIN_PLAYERS = Math.max(2, Number(CONF.minPlayers) || 2);
+  const MAX_PLAYERS = Math.max(MIN_PLAYERS, Number(CONF.maxPlayers) || 4);
+  const AVATARS = (CONF.avatars && CONF.avatars.length)
+    ? CONF.avatars
+    : ['🧑', '😈', '🤖', '💀'];
 
   let S = null;
   let lobbyOpen = false;
+  let lobbyPlayers = clampPlayers(C.storage.get('casino.roulettePlayers', CONF.defaultPlayers || 2));
+
+  function clampPlayers(value) {
+    const fallback = Number(CONF.defaultPlayers) || 2;
+    return util.clamp(Math.round(Number(value) || fallback), MIN_PLAYERS, MAX_PLAYERS);
+  }
+
+  function playerCountOptions() {
+    const out = [];
+    for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n++) out.push(n);
+    return out;
+  }
 
   function itemDef(id) {
     return ITEMS.find((item) => item.id === id) || { id, name: id, icon: '❓', desc: '' };
@@ -41,22 +58,29 @@
         <div class="roulette-lobby" id="rouletteLobby">
           <div class="roulette-lobby__banner">
             <span class="roulette-lobby__icon">🔫</span>
-            <p>双方各 <strong>${CONF.startHp} 点生命</strong>。每轮装填数量公开、顺序保密。香烟回血、放大镜看弹、啤酒退弹、手铐锁回合、锯子让下一枪伤害翻倍。</p>
+            <p>每名玩家 <strong>${CONF.startHp} 点生命</strong>。每轮装填数量公开、顺序保密。香烟回血、放大镜看弹、啤酒退弹、手铐锁回合、锯子让下一枪伤害翻倍。最后活着的人赢。</p>
+          </div>
+          <div class="liar-settings">
+            <div class="liar-setting-row">
+              <span class="liar-setting-label">入座人数</span>
+              ${playerCountOptions().map((n) => `<button class="liar-chip${lobbyPlayers === n ? ' is-active' : ''}" type="button" data-roulette-count="${n}" aria-pressed="${lobbyPlayers === n}">${n} 人</button>`).join('')}
+              <small>你 + ${lobbyPlayers - 1} 个 AI；联机房间也按这个人数入座</small>
+            </div>
           </div>
           <div class="roulette-lobby__modes">
             <button class="roulette-mode" type="button" data-roulette-solo ${canPlay ? '' : 'disabled'}>
               <span class="roulette-mode__icon">😈</span>
-              <span><strong>单人 · 对恶魔</strong><small>你 vs AI · 底注 ${util.fmt(ante)}</small></span>
+              <span><strong>单人 · ${lobbyPlayers} 人局</strong><small>你 vs ${lobbyPlayers - 1} 个 AI · 底注 ${util.fmt(ante)}${lobbyPlayers > 2 ? ` · 底池 ${util.fmt(ante * lobbyPlayers)}` : ''}</small></span>
               <em>1 行动</em>
             </button>
             <button class="roulette-mode" type="button" data-roulette-lan ${lanAvailable ? '' : 'disabled'}>
               <span class="roulette-mode__icon">📡</span>
-              <span><strong>局域网双人</strong><small>${lanAvailable ? '2 人 · 友谊赛不计现金' : '需先用 node server/lan-server.js 启动'}</small></span>
+              <span><strong>本地 / 局域网联机</strong><small>${lanAvailable ? `${MIN_PLAYERS}-${MAX_PLAYERS} 人自定义人数 · 友谊赛不计现金` : '双击 start-lan.bat 后可用'}</small></span>
               <em>${lanAvailable ? '联机' : '不可用'}</em>
             </button>
           </div>
           ${canPlay ? '' : `<p class="roulette-lobby__warn">${reason}，暂时不能入座。</p>`}
-          <p class="roulette-lobby__hint">单人局消耗 1 次行动和 ${util.fmt(ante)} 底注；赢家拿走底池的 90%。</p>
+          <p class="roulette-lobby__hint">单人局消耗 1 次行动和 ${util.fmt(ante)} 底注；最后活着的人拿走底池的 90%（${MAX_PLAYERS} 人局底池 ${util.fmt(ante * MAX_PLAYERS)}）。联机为友谊赛。</p>
         </div>
       `,
       onClosed: () => { lobbyOpen = false; }
@@ -64,10 +88,18 @@
 
     const root = document.getElementById('rouletteLobby') || document.querySelector('.game-panel__body');
     if (root) {
+      root.querySelectorAll('[data-roulette-count]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          lobbyPlayers = clampPlayers(btn.dataset.rouletteCount);
+          C.storage.set('casino.roulettePlayers', lobbyPlayers);
+          lobbyOpen = false;
+          open();
+        });
+      });
       const solo = root.querySelector('[data-roulette-solo]');
-      if (solo) solo.addEventListener('click', startSolo);
+      if (solo) solo.addEventListener('click', () => startSolo(lobbyPlayers));
       const lan = root.querySelector('[data-roulette-lan]');
-      if (lan) lan.addEventListener('click', () => C.Lan.open('roulette'));
+      if (lan) lan.addEventListener('click', () => C.Lan.open('roulette', { players: lobbyPlayers }));
     }
   }
 
@@ -170,6 +202,10 @@
     return fromIndex;
   }
 
+  function aliveCount(state) {
+    return state.players.filter((p) => p.alive).length;
+  }
+
   function advanceTurn(state, fromIndex) {
     let next = nextAlive(state, fromIndex);
     if (state.players[next].skipNext) {
@@ -263,9 +299,12 @@
       target.hp = Math.max(0, target.hp - damage);
       if (target.hp <= 0) {
         target.alive = false;
-        const winner = state.players.find((p) => p.alive);
-        if (winner) finish(state, winner.id);
-        return { ok: true, result: true };
+        target.skipNext = false;
+        const alive = state.players.filter((p) => p.alive);
+        if (alive.length === 1) {
+          finish(state, alive[0].id);
+          return { ok: true, result: true };
+        }
       }
     }
 
@@ -324,8 +363,9 @@
      启动
      ============================================================ */
 
-  function startSolo() {
+  function startSolo(count) {
     if (S) return;
+    const playerCount = clampPlayers(count);
     if (C.state.money < CONF.ante || C.state.actions <= 0) {
       UI.toast('现金或行动不足，暂时不能入座。', 'lose');
       return;
@@ -333,15 +373,27 @@
     if (!C.Game.beginActivity({ action: 1, minMoney: CONF.ante, label: '恶魔轮盘赌' })) return;
     C.state.money -= CONF.ante;
     UI.refresh();
-    const players = [
-      makePlayer('p0', '你', '🧑', false),
-      makePlayer('p1', '恶魔', '😈', true)
-    ];
+    const human = makePlayer('p0', '你', '🧑', false);
+    const ais = [];
+    for (let i = 0; i < playerCount - 1; i++) {
+      const opponent = CONF.opponents[i] || {
+        name: `赌客 ${i + 2}`,
+        emoji: AVATARS[(i + 1) % AVATARS.length]
+      };
+      ais.push(makePlayer('p' + (i + 1), opponent.name, opponent.emoji, true));
+    }
+    const players = [human].concat(ais);
 
     S = {
       mode: 'solo',
       myId: 'p0',
-      state: createState(players, { mode: 'solo', ante: CONF.ante, pot: CONF.ante * 2, houseCut: CONF.houseCut }),
+      playerCount,
+      state: createState(players, {
+        mode: 'solo',
+        ante: CONF.ante,
+        pot: CONF.ante * playerCount,
+        houseCut: CONF.houseCut
+      }),
       view: null,
       busy: false,
       pending: false,
@@ -350,29 +402,34 @@
       netHandler: null
     };
 
-    openTable('单人 · 对恶魔', `底注 ${util.fmt(CONF.ante)} · ${CONF.startHp} 点生命`, () => {
-      S = null;
-      C.Game.endActivity();
-    });
+    openTable(
+      `单人 · ${playerCount} 人局`,
+      `底注 ${util.fmt(CONF.ante)} · ${CONF.startHp} 点生命 · ${playerCount - 1} 个 AI 对手`,
+      () => {
+        S = null;
+        C.Game.endActivity();
+      }
+    );
     render();
     scheduleAI();
   }
 
   function startMultiplayer(ctx) {
     if (S) return;
-    if (!C.Game.beginActivity({ action: 0, label: '局域网 · 恶魔轮盘赌' })) return;
-    const players = (ctx.players || []).slice(0, 2).map((p, i) =>
-      makePlayer(p.id, p.name || `玩家 ${i + 1}`, p.avatar || ['🧑', '😈'][i], false)
-    );
-    if (players.length < 2) {
-      UI.toast('恶魔轮盘赌需要 2 名玩家。', 'lose');
-      C.Game.endActivity();
+    const roster = (ctx.players || []).slice(0, MAX_PLAYERS);
+    if (roster.length < MIN_PLAYERS) {
+      UI.toast(`恶魔轮盘赌至少需要 ${MIN_PLAYERS} 名玩家。`, 'lose');
       return;
     }
+    if (!C.Game.beginActivity({ action: 0, label: '局域网 · 恶魔轮盘赌' })) return;
+    const players = roster.map((p, i) =>
+      makePlayer(p.id, p.name || `玩家 ${i + 1}`, p.avatar || AVATARS[i % AVATARS.length], false)
+    );
 
     S = {
       mode: ctx.role,
       myId: ctx.myId,
+      playerCount: players.length,
       state: null,
       view: null,
       busy: false,
@@ -394,11 +451,15 @@
     S.netHandler = handler;
     C.Net.on('message', handler);
 
-    openTable(ctx.role === 'host' ? '局域网 · 房主' : '局域网 · 联机', '友谊赛 · 不计现金', () => {
-      if (S && S.netHandler) C.Net.off('message', S.netHandler);
-      S = null;
-      C.Game.endActivity();
-    });
+    openTable(
+      ctx.role === 'host' ? '局域网 · 房主' : '局域网 · 联机',
+      `${players.length} 人友谊赛 · 不计现金 · 掉线视为死亡`,
+      () => {
+        if (S && S.netHandler) C.Net.off('message', S.netHandler);
+        S = null;
+        C.Game.endActivity();
+      }
+    );
 
     if (ctx.role === 'host') {
       broadcast();
@@ -481,6 +542,7 @@
     const p = state.players.find((item) => item.id === playerId);
     if (!p) return;
     p.left = true;
+    const index = state.players.indexOf(p);
     if (state.phase === 'result') {
       state.log.push(`${p.name} 离开了房间。`);
       afterAction();
@@ -489,9 +551,14 @@
     if (!p.alive) return;
     p.alive = false;
     p.hp = 0;
+    p.skipNext = false;
     state.log.push(`${p.name} 离开了牌局。`);
-    const winner = state.players.find((item) => item.alive);
-    if (winner) finish(state, winner.id);
+    const alive = state.players.filter((item) => item.alive);
+    if (alive.length === 1) {
+      finish(state, alive[0].id);
+    } else if (state.turn === index) {
+      advanceTurn(state, index);
+    }
     afterAction();
   }
 
@@ -570,8 +637,9 @@
   function aiStep() {
     const state = S.state;
     const p = state.players[state.turn];
-    const opp = state.players.find((item) => item.alive && item.id !== p.id);
-    if (!opp) return;
+    const foes = state.players.filter((item) => item.alive && item.id !== p.id);
+    if (!foes.length) return;
+    const opp = foes[util.randomInt(foes.length)];
 
     if (p.hp < p.maxHp && p.items.includes('cig') && Math.random() < 0.75) {
       useItem(state, p.id, 'cig');
@@ -634,7 +702,7 @@
       UI.toast(`你活下来了，拿走 ${util.fmt(payout)}`, 'win', '🔫');
     } else {
       C.sound.play('lose');
-      UI.toast(`恶魔收走了你的 ${util.fmt(state.ante)} 底注`, 'lose', '💀');
+      UI.toast(`这局输了 ${util.fmt(state.ante)} 底注`, 'lose', '💀');
     }
     State.bumpStat('maxCash', C.state.money);
     UI.refresh();
@@ -695,7 +763,8 @@
     }
 
     const me = view.players.find((p) => p.id === view.myId);
-    const opp = view.players.find((p) => p.id !== view.myId);
+    const opponents = view.players.filter((p) => p.id !== view.myId);
+    const aliveOpponents = opponents.filter((p) => p.alive);
     const myTurn = view.phase === 'playing' && view.turnId === view.myId && !S.pending;
     const knownShell = view.shell ? (view.shell.live ? '实弹' : '空包') : '未知';
     const shellClass = view.shell ? (view.shell.live ? 'is-live' : 'is-blank') : '';
@@ -712,17 +781,30 @@
       </button>`;
     }).join('');
 
-    const oppItems = [];
-    for (let i = 0; i < (opp ? opp.itemCount : 0); i++) oppItems.push('<span class="roulette-item-dot"></span>');
+    const opponentsHTML = opponents.map((p) => {
+      const dots = [];
+      for (let i = 0; i < p.itemCount; i++) dots.push('<span class="roulette-item-dot"></span>');
+      return `<div class="roulette-opponent${view.turnId === p.id ? ' is-turn' : ''}${p.alive ? '' : ' is-dead'}">
+        <span class="roulette-avatar">${p.avatar || '😈'}</span>
+        <div>
+          <strong>${util.escapeHtml(p.name)}${p.skipNext ? ' · 被铐住' : ''}</strong>
+          <div class="roulette-hp">${hpHTML(p)}</div>
+          <small>${p.alive ? `道具 ${p.itemCount} 个` : '已出局'}</small>
+        </div>
+        <div class="roulette-item-dots">${dots.join('')}</div>
+      </div>`;
+    }).join('');
 
     const result = view.phase === 'result' ? resultHTML(view) : '';
     const status = view.phase === 'result'
       ? ''
       : myTurn
         ? `轮到你 · 当前弹壳：${knownShell}`
-        : view.turnId
-          ? `等待 ${nameById(view, view.turnId)} 行动`
-          : '';
+        : me && !me.alive
+          ? `你已出局，等待 ${view.turnId ? nameById(view, view.turnId) : '其他人'} 结束牌局`
+          : view.turnId
+            ? `等待 ${nameById(view, view.turnId)} 行动`
+            : '';
 
     root.innerHTML = `
       <div class="roulette-table">
@@ -732,15 +814,7 @@
           <div class="roulette-hud__item"><span>底池</span><strong>${view.pot ? util.fmt(view.pot) : '友谊赛'}</strong></div>
         </div>
 
-        <div class="roulette-opponent${view.turnId === (opp && opp.id) ? ' is-turn' : ''}">
-          <span class="roulette-avatar">${opp ? opp.avatar : '😈'}</span>
-          <div>
-            <strong>${opp ? util.escapeHtml(opp.name) : '恶魔'}${opp && opp.skipNext ? ' · 被铐住' : ''}</strong>
-            <div class="roulette-hp">${hpHTML(opp)}</div>
-            <small>道具 ${opp ? opp.itemCount : 0} 个</small>
-          </div>
-          <div class="roulette-item-dots">${oppItems.join('')}</div>
-        </div>
+        <div class="roulette-opponents">${opponentsHTML}</div>
 
         <div class="roulette-gun">
           <div class="roulette-gun__barrel ${view.sawed ? 'is-sawed' : ''}">
@@ -752,7 +826,7 @@
           <p class="roulette-gun__hint">${view.sawed ? '枪管已锯短：下一枪伤害 ×2' : '弹壳顺序保密，靠道具和运气。'}</p>
         </div>
 
-        <div class="roulette-me">
+        <div class="roulette-me${me && !me.alive ? ' is-dead' : ''}${myTurn ? ' is-turn' : ''}">
           <div class="roulette-me__head">
             <span>你</span>
             <span class="roulette-hp">${hpHTML(me)}</span>
@@ -764,7 +838,7 @@
         ${view.phase === 'result' ? '' : `
           <div class="roulette-controls">
             <button class="btn btn--danger" type="button" data-roulette="self" ${myTurn ? '' : 'disabled'}>对自己开枪</button>
-            <button class="btn btn--primary" type="button" data-roulette="opponent" ${myTurn && opp ? '' : 'disabled'}>对${opp ? util.escapeHtml(opp.name) : '恶魔'}开枪</button>
+            ${aliveOpponents.map((p) => `<button class="btn btn--primary" type="button" data-roulette="shoot" data-target="${util.escapeHtml(p.id)}" ${myTurn ? '' : 'disabled'}>对 ${util.escapeHtml(p.name)} 开枪</button>`).join('')}
             <button class="btn btn--ghost" type="button" data-roulette="leave">离开</button>
           </div>
           <div class="roulette-status">${status}</div>
@@ -830,8 +904,9 @@
           return;
         }
         if (action === 'again') {
+          const count = S.playerCount;
           UI.closePanel();
-          setTimeout(startSolo, 180);
+          setTimeout(() => startSolo(count), 180);
           return;
         }
         if (action === 'rematch') {
@@ -842,10 +917,9 @@
           act({ type: 'shoot', targetId: S.myId });
           return;
         }
-        if (action === 'opponent') {
-          const view = currentView();
-          const opp = view && view.players.find((p) => p.id !== view.myId);
-          if (opp) act({ type: 'shoot', targetId: opp.id });
+        if (action === 'shoot') {
+          const targetId = btn.dataset.target;
+          if (targetId) act({ type: 'shoot', targetId });
         }
       });
     });
@@ -863,7 +937,7 @@
     if (S.mode === 'client') {
       return UI.modal({
         title: '离开轮盘？',
-        message: '联机牌局中途离开会被视为死亡，房间里的另一方直接获胜。',
+        message: '联机牌局中途离开会被视为死亡，其他玩家会继续。',
         confirmText: '离开',
         cancelText: '继续赌',
         danger: true,
@@ -878,7 +952,7 @@
     if (S.mode === 'host') {
       return UI.modal({
         title: '解散房间？',
-        message: '你会离开轮盘，房间里的另一名玩家会被请出去。',
+        message: '你会离开轮盘，房间里的其他玩家会被请出去。',
         confirmText: '解散并离开',
         cancelText: '继续赌',
         danger: true,
@@ -929,6 +1003,9 @@
     shoot,
     reload,
     remaining,
-    currentShell
+    currentShell,
+    clampPlayers,
+    minPlayers: MIN_PLAYERS,
+    maxPlayers: MAX_PLAYERS
   };
 })(window.Casino = window.Casino || {});

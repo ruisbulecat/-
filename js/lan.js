@@ -7,20 +7,52 @@
 
   const util = C.util;
   const UI = C.UI;
+  const LIAR = C.DATA.LIAR || {};
+  const ROULETTE = C.DATA.ROULETTE || {};
+  const MIN_LIAR = Math.max(2, Number(LIAR.minPlayers) || 2);
+  const MAX_LIAR = Math.max(MIN_LIAR, Number(LIAR.maxPlayers) || 4);
+  const MIN_ROULETTE = Math.max(2, Number(ROULETTE.minPlayers) || 2);
+  const MAX_ROULETTE = Math.max(MIN_ROULETTE, Number(ROULETTE.maxPlayers) || 4);
+  const AVATARS = (LIAR.avatars && LIAR.avatars.length) ? LIAR.avatars : ['🧑', '🎩', '💃', '🥃'];
 
   let S = null;
   let offPlayers = null;
   let offMessage = null;
   let offStatus = null;
 
+  function clampLiar(value) {
+    return util.clamp(Math.round(Number(value) || (LIAR.defaultPlayers || 4)), MIN_LIAR, MAX_LIAR);
+  }
+
+  function clampRoulette(value) {
+    return util.clamp(Math.round(Number(value) || (ROULETTE.defaultPlayers || 2)), MIN_ROULETTE, MAX_ROULETTE);
+  }
+
+  function countOptions(min, max) {
+    const out = [];
+    for (let n = min; n <= max; n++) out.push(n);
+    return out;
+  }
+
+  function liarCountOptions() {
+    return countOptions(MIN_LIAR, MAX_LIAR);
+  }
+
+  function rouletteCountOptions() {
+    return countOptions(MIN_ROULETTE, MAX_ROULETTE);
+  }
+
   function open(game, options) {
     if (S) return;
     const opts = options || {};
+    const initialGame = game === 'roulette' ? 'roulette' : 'liar';
     S = {
       tab: 'create',
-      game: game === 'roulette' ? 'roulette' : 'liar',
+      game: initialGame,
       liarMode: opts.liarMode === 'echo' ? 'echo' : 'classic',
       echoCount: Math.max(1, Math.min(3, Number(opts.echoCount) || 1)),
+      liarPlayers: clampLiar(opts.liarPlayers || (initialGame === 'liar' ? opts.players : null) || C.storage.get('casino.lanPlayers', LIAR.defaultPlayers || 4)),
+      roulettePlayers: clampRoulette(opts.roulettePlayers || (initialGame === 'roulette' ? opts.players : null) || C.storage.get('casino.lanRoulettePlayers', ROULETTE.defaultPlayers || 2)),
       name: C.storage.get('casino.lanName', '') || '',
       code: '',
       room: false,
@@ -71,6 +103,16 @@
         S.hostId = data.hostId;
         S.roomId = data.roomId;
         S.room = !!data.roomId;
+        const isHost = S.hostId === C.Net.playerId;
+        if (S.room && !isHost) {
+          if (data.game === 'liar' || data.game === 'roulette') S.game = data.game;
+          if (Number(data.maxPlayers)) {
+            if (S.game === 'roulette') S.roulettePlayers = clampRoulette(data.maxPlayers);
+            else S.liarPlayers = clampLiar(data.maxPlayers);
+          }
+          if (data.liarMode) S.liarMode = data.liarMode === 'echo' ? 'echo' : 'classic';
+          if (data.echoCount) S.echoCount = Math.max(1, Math.min(3, Number(data.echoCount) || 1));
+        }
         if (S.room && S.phase !== 'started' && S.phase !== 'starting') S.phase = 'room';
         render();
       });
@@ -118,10 +160,10 @@
           ${isCreate ? `
             <div class="lan-games">
               <button class="lan-game${S.game === 'liar' ? ' is-active' : ''}" type="button" data-lan-game="liar">
-                <span>🍻</span><strong>骗子酒馆</strong><small>2-4 人 · 吹牛与质疑</small>
+                <span>🍻</span><strong>骗子酒馆</strong><small>${MIN_LIAR}-${MAX_LIAR} 人 · 吹牛、质疑与牌桌聊天</small>
               </button>
               <button class="lan-game${S.game === 'roulette' ? ' is-active' : ''}" type="button" data-lan-game="roulette">
-                <span>🔫</span><strong>恶魔轮盘赌</strong><small>2 人 · 实弹与空包</small>
+                <span>🔫</span><strong>恶魔轮盘赌</strong><small>${MIN_ROULETTE}-${MAX_ROULETTE} 人 · 实弹、空包与道具</small>
               </button>
             </div>
             <button class="btn btn--primary btn--lg btn--block" type="button" data-lan-create>创建房间</button>
@@ -138,9 +180,16 @@
 
     const players = S.players || [];
     const isHost = S.hostId === C.Net.playerId;
-    const need = S.game === 'roulette' ? 2 : 2;
-    const max = S.game === 'roulette' ? 2 : 4;
-    const canStart = isHost && players.length >= need && players.length <= max && !S.starting;
+    const need = S.game === 'roulette' ? S.roulettePlayers : S.liarPlayers;
+    const max = need;
+    const canStart = isHost && players.length === need && !S.starting;
+    const startLabel = S.starting
+      ? '正在开始……'
+      : players.length < need
+        ? `还差 ${need - players.length} 人（${players.length}/${need}）`
+        : players.length > need
+          ? `人数超出（${players.length}/${need}）`
+          : `开始 ${need} 人局`;
     return `
       <div class="lan-room">
         <div class="lan-room__head">
@@ -149,13 +198,29 @@
         </div>
         <div class="lan-players">
           ${players.map((p, i) => `<div class="lan-player${p.host ? ' is-host' : ''}${p.id === C.Net.playerId ? ' is-me' : ''}">
-            <span class="lan-player__avatar">${['🧑', '🎩', '💃', '🥃'][i % 4]}</span>
+            <span class="lan-player__avatar">${AVATARS[i % AVATARS.length]}</span>
             <strong>${util.escapeHtml(p.name)}</strong>
             ${p.host ? '<em>房主</em>' : ''}
             ${p.id === C.Net.playerId ? '<small>你</small>' : ''}
           </div>`).join('')}
         </div>
+        ${S.game === 'roulette' ? `
+          <div class="lan-liar-options">
+            <span class="lan-liar-options__label">入座人数</span>
+            ${isHost
+              ? rouletteCountOptions().map((n) => `<button class="liar-chip${S.roulettePlayers === n ? ' is-active' : ''}" type="button" data-lan-roulette-count="${n}" aria-pressed="${S.roulettePlayers === n}">${n} 人</button>`).join('')
+              : `<strong>${S.roulettePlayers} 人局</strong>`}
+            <small>${isHost ? '房间最多进这么多人，到齐后才能开局' : '由房主设定，到齐后自动可以开局'}</small>
+          </div>
+        ` : ''}
         ${S.game === 'liar' ? `
+          <div class="lan-liar-options">
+            <span class="lan-liar-options__label">入座人数</span>
+            ${isHost
+              ? liarCountOptions().map((n) => `<button class="liar-chip${S.liarPlayers === n ? ' is-active' : ''}" type="button" data-lan-liar-count="${n}" aria-pressed="${S.liarPlayers === n}">${n} 人</button>`).join('')
+              : `<strong>${S.liarPlayers} 人局</strong>`}
+            <small>${isHost ? '房间最多进这么多人，到齐后才能开局' : '由房主设定，到齐后自动可以开局'}</small>
+          </div>
           <div class="lan-liar-options">
             <span class="lan-liar-options__label">酒馆模式</span>
             ${isHost ? `
@@ -163,17 +228,17 @@
               <button class="liar-chip${S.liarMode === 'echo' ? ' is-active' : ''}" type="button" data-lan-liar-mode="echo">回响</button>
               ${S.liarMode === 'echo' ? [1, 2, 3].map((n) => `<button class="liar-chip${S.echoCount === n ? ' is-active' : ''}" type="button" data-lan-echo="${n}">${n} 张</button>`).join('') : ''}
               <small>J-A + 2 张万能牌；回响为每轮公开的目标牌</small>
-            ` : `<strong>由房主选择</strong><small>开始后自动同步模式</small>`}
+            ` : `<strong>${S.liarMode === 'echo' ? `回响 · ${S.echoCount} 张` : '经典'}</strong><small>开始后自动同步模式</small>`}
           </div>
         ` : ''}
         <div class="lan-room__foot">
           ${isHost
-            ? `<button class="btn btn--primary btn--lg" type="button" data-lan-start ${canStart ? '' : 'disabled'}>${S.starting ? '正在开始……' : players.length < need ? '至少需要 2 人' : '开始游戏'}</button>`
-            : '<p class="lan-waiting"><span class="thinking"><i></i><i></i><i></i></span> 等房主开始……</p>'}
+            ? `<button class="btn btn--primary btn--lg" type="button" data-lan-start ${canStart ? '' : 'disabled'}>${startLabel}</button>`
+            : `<p class="lan-waiting"><span class="thinking"><i></i><i></i><i></i></span> ${players.length < need ? `等朋友入座（${players.length}/${need}）……` : '等房主开始……'}</p>`}
           <button class="btn btn--ghost" type="button" data-lan-leave>离开房间</button>
         </div>
         ${S.error ? `<p class="lan-error">${util.escapeHtml(S.error)}</p>` : ''}
-        <p class="lan-hint">把房间码告诉同一 Wi-Fi 下的朋友，或在本机另一个浏览器窗口加入。房主开始后所有人自动进入牌局，不需要外网。</p>
+        <p class="lan-hint">把房间码告诉同一 Wi-Fi 下的朋友，或在本机另一个浏览器窗口加入。房主开始后所有人自动进入牌局；骗子酒馆还支持 2-8 人和牌桌聊天。</p>
       </div>
     `;
   }
@@ -212,15 +277,49 @@
       });
     });
 
+    root.querySelectorAll('[data-lan-roulette-count]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = clampRoulette(btn.dataset.lanRouletteCount);
+        if (next < (S.players || []).length) {
+          S.error = `房间里已经有 ${S.players.length} 人，不能把人数改到 ${next}。`;
+          render();
+          return;
+        }
+        S.error = null;
+        S.roulettePlayers = next;
+        C.storage.set('casino.lanRoulettePlayers', S.roulettePlayers);
+        pushRoomConfig();
+        render();
+      });
+    });
+
+    root.querySelectorAll('[data-lan-liar-count]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = clampLiar(btn.dataset.lanLiarCount);
+        if (next < (S.players || []).length) {
+          S.error = `房间里已经有 ${S.players.length} 人，不能把人数改到 ${next}。`;
+          render();
+          return;
+        }
+        S.error = null;
+        S.liarPlayers = next;
+        C.storage.set('casino.lanPlayers', S.liarPlayers);
+        pushRoomConfig();
+        render();
+      });
+    });
+
     root.querySelectorAll('[data-lan-liar-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         S.liarMode = btn.dataset.lanLiarMode === 'echo' ? 'echo' : 'classic';
+        pushRoomConfig();
         render();
       });
     });
     root.querySelectorAll('[data-lan-echo]').forEach((btn) => {
       btn.addEventListener('click', () => {
         S.echoCount = Math.max(1, Math.min(3, Number(btn.dataset.lanEcho) || 1));
+        pushRoomConfig();
         render();
       });
     });
@@ -245,6 +344,16 @@
     if (copy) copy.addEventListener('click', copyCode);
   }
 
+  function pushRoomConfig() {
+    if (!S || !C.Net || !C.Net.isHost() || !C.Net.roomId) return;
+    C.Net.send('config', null, {
+      game: S.game,
+      maxPlayers: S.game === 'roulette' ? S.roulettePlayers : S.liarPlayers,
+      liarMode: S.liarMode,
+      echoCount: S.echoCount
+    }).catch(() => { /* 轮询会自动重试房主状态，这里失败不打断操作 */ });
+  }
+
   async function doCreate() {
     if (!S) return;
     if (!S.name.trim()) {
@@ -256,13 +365,19 @@
     S.starting = true;
     render();
     try {
-      await C.Net.create(S.name.trim());
+      await C.Net.create(S.name.trim(), {
+        game: S.game,
+        maxPlayers: S.game === 'roulette' ? S.roulettePlayers : S.liarPlayers,
+        liarMode: S.liarMode,
+        echoCount: S.echoCount
+      });
       if (!S) {
         C.Net.leave();
         return;
       }
       S.starting = false;
       S.phase = 'room';
+      pushRoomConfig();
       render();
     } catch (e) {
       if (!S) return;
@@ -307,10 +422,11 @@
   function doStart() {
     if (!S || !C.Net.isHost() || S.starting) return;
     const players = C.Net.players.map((p) => ({ id: p.id, name: p.name }));
-    const min = 2;
-    const max = S.game === 'roulette' ? 2 : 4;
-    if (players.length < min || players.length > max) {
-      S.error = S.game === 'roulette' ? '恶魔轮盘赌需要正好 2 名玩家。' : '骗子酒馆需要 2-4 名玩家。';
+    const need = S.game === 'roulette' ? S.roulettePlayers : S.liarPlayers;
+    if (players.length !== need) {
+      S.error = S.game === 'roulette'
+        ? `恶魔轮盘赌当前设置 ${need} 人，房间里有 ${players.length} 人。`
+        : `骗子酒馆当前设置 ${need} 人，房间里有 ${players.length} 人。`;
       render();
       return;
     }
@@ -318,21 +434,16 @@
     S.error = null;
     S.phase = 'starting';
     render();
-    C.Net.send('start', null, {
+    const payload = {
       game: S.game,
       players,
       hostId: C.Net.playerId,
       liarMode: S.liarMode,
-      echoCount: S.echoCount
-    }).then(() => {
+      echoCount: S.echoCount,
+      maxPlayers: need
+    };
+    C.Net.send('start', null, payload).then(() => {
       if (!S) return;
-      const payload = {
-        game: S.game,
-        players,
-        hostId: C.Net.playerId,
-        liarMode: S.liarMode,
-        echoCount: S.echoCount
-      };
       S.phase = 'started';
       launch(payload, true);
     }).catch((e) => {
@@ -352,7 +463,8 @@
       players: payload.players || [],
       hostId: payload.hostId,
       liarMode: payload.liarMode,
-      echoCount: payload.echoCount
+      echoCount: payload.echoCount,
+      maxPlayers: payload.maxPlayers
     };
     cleanup();
     UI.closePanel();
