@@ -10,10 +10,65 @@
   const UI = C.UI;
   const DATA = C.DATA;
   const CONF = DATA.LIAR;
-  const RANKS = DATA.RANKS;
+  const RANKS = (CONF.ranks && CONF.ranks.length) ? CONF.ranks : ['J', 'Q', 'K', 'A'];
 
   let S = null;
   let lobbyOpen = false;
+  let lobbyEchoMode = false;
+  let lobbyEchoCount = 1;
+
+  /* 两副 J-A 牌 + 两张万能牌；回响牌是每轮额外生成的公开目标牌 */
+  function buildLiarDeck() {
+    const deck = [];
+    const copies = Math.max(1, CONF.decks || 1);
+    for (let d = 0; d < copies; d++) {
+      for (let s = 0; s < DATA.SUITS.length; s++) {
+        const suit = DATA.SUITS[s];
+        for (const rank of RANKS) {
+          deck.push({
+            uid: util.uid('liar'),
+            suit: suit.symbol,
+            suitName: suit.name,
+            suitIdx: s,
+            rank,
+            value: DATA.RANK_VALUES[rank] || 0,
+            red: suit.red,
+            joker: false,
+            wild: false
+          });
+        }
+      }
+    }
+    const wildCount = Math.max(0, CONF.wildcards || 0);
+    for (let i = 0; i < wildCount; i++) {
+      deck.push({
+        uid: util.uid('wild'),
+        suit: '★',
+        suitName: '万能',
+        suitIdx: -1,
+        rank: '万能',
+        value: 0,
+        red: true,
+        joker: false,
+        wild: true
+      });
+    }
+    return util.shuffle(deck);
+  }
+
+  function makeEchoCard(rank) {
+    return {
+      uid: util.uid('echo'),
+      suit: '★',
+      suitName: '回响',
+      suitIdx: -1,
+      rank,
+      value: DATA.RANK_VALUES[rank] || 0,
+      red: true,
+      joker: false,
+      echo: true
+    };
+  }
 
   /* ============================================================
      入口：模式选择
@@ -37,7 +92,22 @@
         <div class="liar-lobby" id="liarLobby">
           <div class="liar-lobby__banner">
             <span class="liar-lobby__icon">🍻</span>
-            <p>每人 <strong>2 条命</strong>，5 张手牌。目标牌每轮随机；你可以老实出牌，也可以把一张烂牌说成目标牌。被质疑时，只有最后打出的牌会被翻开。</p>
+            <p>每人 <strong>2 条命</strong>，5 张手牌。只发 <strong>J / Q / K / A</strong>，外加 <strong>2 张万能牌</strong>；目标牌每轮随机。被质疑时，只有最后打出的牌会被翻开。</p>
+          </div>
+          <div class="liar-settings">
+            <div class="liar-setting-row">
+              <span class="liar-setting-label">酒馆模式</span>
+              <button class="liar-chip${lobbyEchoMode ? '' : ' is-active'}" type="button" data-liar-mode="classic">经典</button>
+              <button class="liar-chip${lobbyEchoMode ? ' is-active' : ''}" type="button" data-liar-mode="echo">回响</button>
+              <small>${lobbyEchoMode ? '每轮桌上会多出公开的目标牌“回响”' : '标准规则：J-A + 两张万能牌'}</small>
+            </div>
+            ${lobbyEchoMode ? `
+              <div class="liar-setting-row">
+                <span class="liar-setting-label">回响张数</span>
+                ${[1, 2, 3].map((n) => `<button class="liar-chip${lobbyEchoCount === n ? ' is-active' : ''}" type="button" data-liar-echo="${n}">${n} 张</button>`).join('')}
+                <small>每轮开始时补充，最多把 1 张回响加入你的出牌（计入 3 张上限）</small>
+              </div>
+            ` : ''}
           </div>
           <div class="liar-lobby__modes">
             <button class="liar-mode" type="button" data-liar-solo="2" ${canPlay ? '' : 'disabled'}>
@@ -52,12 +122,12 @@
             </button>
             <button class="liar-mode" type="button" data-liar-lan ${lanAvailable ? '' : 'disabled'}>
               <span class="liar-mode__icon">📡</span>
-              <span><strong>局域网联机</strong><small>${lanAvailable ? '2-4 人 · 友谊赛不计现金' : '需先用 node server/lan-server.js 启动'}</small></span>
+              <span><strong>本地 / 局域网联机</strong><small>${lanAvailable ? '2-4 人 · 友谊赛不计现金' : '双击 start-lan.bat 后可用'}</small></span>
               <em>${lanAvailable ? '联机' : '不可用'}</em>
             </button>
           </div>
           ${canPlay ? '' : `<p class="liar-lobby__warn">${reason}，暂时不能入座单人局。</p>`}
-          <p class="liar-lobby__hint">单人局会消耗 1 次行动和 ${util.fmt(ante)} 底注；赢家拿走底池的 90%。</p>
+          <p class="liar-lobby__hint">单人局会消耗 1 次行动和 ${util.fmt(ante)} 底注；赢家拿走底池的 90%。联机为友谊赛。</p>
         </div>
       `,
       onClosed: () => { lobbyOpen = false; }
@@ -66,10 +136,31 @@
     const root = document.getElementById('liarLobby') || document.querySelector('.game-panel__body');
     if (root) {
       root.querySelectorAll('[data-liar-solo]').forEach((btn) => {
-        btn.addEventListener('click', () => startSolo(Number(btn.dataset.liarSolo)));
+        btn.addEventListener('click', () => startSolo(Number(btn.dataset.liarSolo), {
+          echoMode: lobbyEchoMode,
+          echoMax: lobbyEchoCount
+        }));
+      });
+      root.querySelectorAll('[data-liar-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          lobbyEchoMode = btn.dataset.liarMode === 'echo';
+          if (!lobbyEchoMode) lobbyEchoCount = 1;
+          lobbyOpen = false;
+          open();
+        });
+      });
+      root.querySelectorAll('[data-liar-echo]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          lobbyEchoCount = Number(btn.dataset.liarEcho);
+          lobbyOpen = false;
+          open();
+        });
       });
       const lan = root.querySelector('[data-liar-lan]');
-      if (lan) lan.addEventListener('click', () => C.Lan.open('liar'));
+      if (lan) lan.addEventListener('click', () => C.Lan.open('liar', {
+        liarMode: lobbyEchoMode ? 'echo' : 'classic',
+        echoCount: lobbyEchoCount
+      }));
     }
   }
 
@@ -95,11 +186,14 @@
     const state = {
       mode: opts.mode,
       players,
-      deck: util.shuffle(C.cards.create(false)),
+      deck: buildLiarDeck(),
       discard: [],
       target: RANKS[0],
       turn: 0,
       pile: null,
+      echoes: [],
+      echoMode: !!opts.echoMode,
+      echoMax: util.clamp(Number(opts.echoMax) || 1, 1, CONF.echoMax || 3),
       reveal: null,
       phase: 'playing',
       round: 0,
@@ -135,14 +229,16 @@
 
   function newRound(state, starterId) {
     const pool = [];
-    for (const p of state.players) pool.push.apply(pool, p.hand);
-    if (state.pile) pool.push.apply(pool, state.pile.cards);
+    for (const p of state.players) {
+      pool.push.apply(pool, p.hand.filter((card) => !card.echo));
+    }
+    if (state.pile) pool.push.apply(pool, state.pile.cards.filter((card) => !card.echo));
     pool.push.apply(pool, state.deck);
     pool.push.apply(pool, state.discard);
 
     let deck = util.shuffle(pool);
     const need = aliveCount(state) * CONF.handSize;
-    if (deck.length < need) deck = util.shuffle(C.cards.create(false));
+    if (deck.length < need) deck = buildLiarDeck();
 
     state.deck = deck;
     state.discard = [];
@@ -155,11 +251,18 @@
       p.hand = p.alive ? state.deck.splice(0, CONF.handSize) : [];
     }
 
+    state.echoes = [];
+    if (state.echoMode) {
+      const count = util.clamp(Number(state.echoMax) || 1, 1, CONF.echoMax || 3);
+      for (let i = 0; i < count; i++) state.echoes.push(makeEchoCard(state.target));
+    }
+
     let starterIndex = state.players.findIndex((p) => p.id === starterId && p.alive);
     if (starterIndex < 0) starterIndex = state.players.findIndex((p) => p.alive);
     state.turn = starterIndex;
 
     state.log.push(`第 ${state.round} 轮开始：目标牌是 ${state.target}，${state.players[starterIndex].name} 先手。`);
+    if (state.echoMode) state.log.push(`桌上出现 ${state.echoes.length} 张回响（${state.target}）。`);
     if (state.log.length > 60) state.log.shift();
   }
 
@@ -185,7 +288,7 @@
       }
       const actor = state.players.find((p) => p.id === state.pile.actorId);
       const cards = state.pile.cards.slice();
-      const truthful = cards.every((card) => card.rank === state.pile.claimedRank);
+      const truthful = cards.every((card) => card.wild || card.rank === state.pile.claimedRank);
       const loser = truthful ? player : actor;
       const winner = truthful ? actor : player;
 
@@ -221,15 +324,23 @@
       if (ids.length < 1) return { ok: false, error: '至少打出 1 张牌。' };
       const unique = new Set(ids);
       if (unique.size !== ids.length) return { ok: false, error: '选牌重复了。' };
+      const useEcho = !!action.useEcho && state.echoMode && state.echoes.length > 0;
+      if (ids.length + (useEcho ? 1 : 0) > CONF.maxPlay) {
+        return { ok: false, error: `回响也计入出牌上限，最多 ${CONF.maxPlay} 张。` };
+      }
       const cards = [];
       for (const uid of ids) {
         const card = player.hand.find((item) => item.uid === uid);
         if (!card) return { ok: false, error: '手牌里没有这张牌。' };
         cards.push(card);
       }
-      if (cards.length > CONF.maxPlay) return { ok: false, error: `最多打出 ${CONF.maxPlay} 张。` };
+      let usedEcho = null;
+      if (useEcho) {
+        usedEcho = state.echoes.pop();
+        cards.push(usedEcho);
+      }
 
-      const lie = cards.some((card) => card.rank !== state.target);
+      const lie = cards.some((card) => !card.wild && !card.echo && card.rank !== state.target);
       player.bluffed = player.bluffed || lie;
       player.hand = player.hand.filter((card) => !unique.has(card.uid));
       state.pile = {
@@ -239,10 +350,10 @@
         claimedRank: state.target
       };
       state.reveal = null;
-      state.log.push(`${player.name} 打出 ${cards.length} 张，声称是 ${state.target}。`);
+      state.log.push(`${player.name} 打出 ${cards.length} 张，声称是 ${state.target}${usedEcho ? '（含 1 张回响）' : ''}。`);
       if (state.log.length > 60) state.log.shift();
       state.turn = nextAlive(state, pIndex);
-      return { ok: true, lie };
+      return { ok: true, lie, echo: !!usedEcho };
     }
 
     return { ok: false, error: '未知操作。' };
@@ -266,6 +377,9 @@
         alive: p.alive, handCount: p.hand.length, isAI: p.isAI
       })),
       myHand: viewer && viewer.alive ? viewer.hand.slice() : [],
+      echoes: (state.echoes || []).slice(),
+      echoMode: !!state.echoMode,
+      echoMax: state.echoMax,
       pile: state.pile ? {
         count: state.pile.count,
         actorId: state.pile.actorId,
@@ -282,8 +396,9 @@
      单人 / 局域网启动
      ============================================================ */
 
-  function startSolo(count) {
+  function startSolo(count, options) {
     if (S) return;
+    const opts = options || {};
     const ante = CONF.ante;
     if (!C.Game.beginActivity({ action: 1, minMoney: ante, label: '骗子酒馆' })) return;
     C.state.money -= ante;
@@ -293,14 +408,26 @@
       makePlayer('p' + (i + 1), item.name, item.emoji, true)
     );
     const players = [human].concat(ais);
+    const echoMode = !!opts.echoMode;
+    const echoMax = util.clamp(Number(opts.echoMax) || 1, 1, CONF.echoMax || 3);
 
     S = {
       mode: 'solo',
       myId: 'p0',
       playerCount: count,
-      state: createState(players, { mode: 'solo', ante, pot: ante * count, houseCut: CONF.houseCut }),
+      echoMode,
+      echoMax,
+      state: createState(players, {
+        mode: 'solo',
+        ante,
+        pot: ante * count,
+        houseCut: CONF.houseCut,
+        echoMode,
+        echoMax
+      }),
       view: null,
       selected: new Set(),
+      useEcho: false,
       busy: false,
       pending: false,
       aiTimer: null,
@@ -308,10 +435,14 @@
       netHandler: null
     };
 
-    openTable(`单人 · ${count} 人局`, `底注 ${util.fmt(ante)} · 你有 ${CONF.lives} 条命`, () => {
-      S = null;
-      C.Game.endActivity();
-    });
+    openTable(
+      `单人 · ${count} 人局${echoMode ? ` · 回响 ${echoMax}` : ''}`,
+      `底注 ${util.fmt(ante)} · 你有 ${CONF.lives} 条命${echoMode ? ` · 每轮 ${echoMax} 张回响` : ''}`,
+      () => {
+        S = null;
+        C.Game.endActivity();
+      }
+    );
     render();
     scheduleAI();
   }
@@ -325,14 +456,19 @@
     );
     const ante = 0;
     const role = ctx.role;
+    const echoMode = ctx.liarMode === 'echo';
+    const echoMax = util.clamp(Number(ctx.echoCount) || 1, 1, CONF.echoMax || 3);
 
     S = {
       mode: role,
       myId: ctx.myId,
       playerCount: players.length,
+      echoMode,
+      echoMax,
       state: null,
       view: null,
       selected: new Set(),
+      useEcho: false,
       busy: false,
       pending: false,
       aiTimer: null,
@@ -345,7 +481,9 @@
         mode: 'host',
         ante: 0,
         pot: 0,
-        houseCut: 0
+        houseCut: 0,
+        echoMode,
+        echoMax
       });
       State.unlock('lan_first');
       State.unlock('lan_host');
@@ -359,7 +497,7 @@
 
     openTable(
       role === 'host' ? '局域网 · 房主' : '局域网 · 联机',
-      '友谊赛 · 不计现金 · 掉线视为离开',
+      `友谊赛 · 不计现金${echoMode ? ` · 回响 ${echoMax}` : ''} · 掉线视为离开`,
       () => {
         if (S && S.netHandler) C.Net.off('message', S.netHandler);
         S = null;
@@ -415,8 +553,14 @@
       return;
     }
     if (S.mode === 'client' && msg.type === 'state') {
+      const wasResult = !!S.view && S.view.phase === 'result';
       S.view = msg.payload.view;
       S.pending = false;
+      if (wasResult && S.view && S.view.phase === 'playing') {
+        S.settled = false;
+        S.selected.clear();
+        S.useEcho = false;
+      }
       render();
       if (S.view && S.view.phase === 'result') settleLan();
       return;
@@ -440,6 +584,12 @@
     const index = state.players.findIndex((p) => p.id === playerId);
     if (index < 0) return;
     const p = state.players[index];
+    p.left = true;
+    if (state.phase === 'result') {
+      state.log.push(`${p.name} 离开了房间。`);
+      afterAction();
+      return;
+    }
     if (!p.alive) return;
     p.alive = false;
     p.lives = 0;
@@ -462,6 +612,7 @@
     if (S.mode === 'client') {
       if (!S.view || S.pending || S.view.phase !== 'playing' || S.view.turnId !== S.myId) return;
       S.pending = true;
+      S.useEcho = false;
       C.Net.send('action', null, { action }).catch(() => {
         if (!S) return;
         S.pending = false;
@@ -487,6 +638,7 @@
   function afterAction() {
     if (!S) return;
     S.selected.clear();
+    S.useEcho = false;
     if (S.mode === 'solo') {
       if (S.state.phase === 'result') {
         settleSolo();
@@ -522,6 +674,10 @@
       const current = S.state.players[S.state.turn];
       if (!current || !current.isAI) return;
       const action = chooseAIAction(S.state, current);
+      if (action.type === 'play' && S.state.echoMode && S.state.echoes.length &&
+          action.cards.length < CONF.maxPlay && Math.random() < 0.35) {
+        action.useEcho = true;
+      }
       const result = applyAction(S.state, current.id, action);
       if (!result.ok) {
         // 兜底：随便打一张
@@ -533,7 +689,7 @@
   }
 
   function chooseAIAction(state, player) {
-    const targetCards = player.hand.filter((card) => card.rank === state.target);
+    const targetCards = player.hand.filter((card) => card.wild || card.rank === state.target);
     const canChallenge = !!state.pile && state.pile.actorId !== player.id;
 
     if (canChallenge) {
@@ -550,7 +706,7 @@
       const take = 1 + (Math.random() < 0.35 ? 1 : 0);
       cards = targetCards.slice(0, take);
       if (Math.random() < 0.18) {
-        const extra = player.hand.find((card) => card.rank !== state.target);
+        const extra = player.hand.find((card) => !card.wild && card.rank !== state.target);
         if (extra && cards.length < CONF.maxPlay) cards.push(extra);
       }
     }
@@ -582,6 +738,7 @@
       State.unlock('liar_win');
       if (me && me.bluffed) State.unlock('liar_bluff');
       if (me && me.lives === state.livesMax) State.unlock('liar_flawless');
+      if (state.echoMode) State.unlock('liar_echo');
       C.sound.play('bigwin');
       UI.toast(`你活到了最后，拿走 ${util.fmt(payout)}`, 'win', '🍻');
     } else {
@@ -606,8 +763,33 @@
       if (view.players) {
         const me = view.players.find((p) => p.id === S.myId);
         if (me && me.lives === view.livesMax) State.unlock('liar_flawless');
+        if (view.echoMode) State.unlock('liar_echo');
       }
     }
+    render();
+  }
+
+  /* 局域网同房间再来一局：不重新建房、不重新加入 */
+  function rematchLanHost() {
+    if (!S || S.mode !== 'host' || !S.state || S.state.phase !== 'result') return;
+    const players = S.state.players.filter((p) => !p.left).map((p) => makePlayer(p.id, p.name, p.avatar, false));
+    if (players.length < 2) {
+      UI.toast('人数不足 2 人，无法再来一局。', 'lose');
+      return;
+    }
+    S.state = createState(players, {
+      mode: 'host',
+      ante: 0,
+      pot: 0,
+      houseCut: 0,
+      echoMode: S.echoMode,
+      echoMax: S.echoMax
+    });
+    S.settled = false;
+    S.selected.clear();
+    S.useEcho = false;
+    S.pending = false;
+    broadcast();
     render();
   }
 
@@ -649,6 +831,21 @@
       if (!myHand.some((card) => card.uid === uid)) S.selected.delete(uid);
     }
     const selectedCount = S.selected.size;
+    if (!view.echoMode || !view.echoes || view.echoes.length === 0) S.useEcho = false;
+    const echoSelected = !!S.useEcho && view.echoes && view.echoes.length > 0;
+    const totalCount = selectedCount + (echoSelected ? 1 : 0);
+    const canPlay = myTurn && selectedCount > 0 && totalCount <= CONF.maxPlay;
+
+    const echoHTML = view.echoMode ? `
+      <div class="liar-echoes">
+        <div class="liar-echoes__head">
+          <span>回响 · 剩余 <b>${view.echoes.length}</b> 张</span>
+          <small>每轮补充；最多带 1 张进本手牌，计入 3 张上限</small>
+        </div>
+        <div class="liar-echo-cards">
+          ${view.echoes.length ? view.echoes.map((card) => `<span class="liar-echo-card">${UI.cardHTML(card, { size: 'mini' })}</span>`).join('') : '<span class="liar-echo-empty">本轮回响已用完</span>'}
+        </div>
+      </div>` : '';
 
     const opponents = view.players.filter((p) => p.id !== view.myId);
     const opponentHTML = opponents.map((p) => {
@@ -712,6 +909,7 @@
             <p class="liar-claim">${claim}</p>
             ${view.pile ? `<button class="btn btn--danger" type="button" data-liar="challenge" ${canChallenge ? '' : 'disabled'}>质疑（掀桌）</button>` : ''}
           </div>
+          ${echoHTML}
           ${revealHTML}
         </div>
 
@@ -725,9 +923,10 @@
 
         ${view.phase === 'result' ? '' : `
           <div class="liar-controls">
-            <button class="btn btn--primary" type="button" data-liar="play" ${myTurn && selectedCount > 0 ? '' : 'disabled'}>
-              打出 ${selectedCount || 0} 张（声称 ${target}）
+            <button class="btn btn--primary" type="button" data-liar="play" ${canPlay ? '' : 'disabled'}>
+              打出 ${selectedCount || 0} 张${echoSelected ? ' + 回响' : ''}（声称 ${target}）
             </button>
+            ${view.echoMode && view.echoes.length ? `<button class="btn btn--ghost${S.useEcho ? ' is-active' : ''}" type="button" data-liar="echo" ${myTurn ? '' : 'disabled'}>${S.useEcho ? '取消回响' : '带上回响'}</button>` : ''}
             <button class="btn btn--ghost" type="button" data-liar="leave">离开</button>
           </div>
           <div class="liar-status">${statusText}${pendingText}</div>
@@ -764,6 +963,8 @@
       : 0;
     const amountClass = amount > 0 ? 'pos' : amount < 0 ? 'neg' : 'tie';
     const canAgain = view.mode === 'solo' && C.state.actions > 0 && C.state.money >= view.ante && !C.state.gameOver;
+    const isLan = view.mode !== 'solo';
+    const lanHost = isLan && S.mode === 'host';
     return `<div class="liar-result liar-result--${won ? 'win' : 'loss'}">
       <p class="liar-result__eyebrow">GAME OVER</p>
       <h3>${won ? '你活到了最后' : `${util.escapeHtml(winner ? winner.name : '某人')} 活到了最后`}</h3>
@@ -771,6 +972,8 @@
       <p>${view.mode === 'solo' ? (won ? `底池 ${util.fmt(view.pot)}，抽水 10% 后到手 ${util.fmt(amount)}。` : `底注 ${util.fmt(view.ante)} 留在了桌上。`) : '局域网友谊赛，输赢只关乎面子。'}</p>
       <div class="liar-result__actions">
         ${view.mode === 'solo' ? `<button class="btn btn--primary" type="button" data-liar="again" ${canAgain ? '' : 'disabled'}>再来一局（1 行动）</button>` : ''}
+        ${lanHost ? '<button class="btn btn--primary" type="button" data-liar="rematch">同房间再来一局</button>' : ''}
+        ${isLan && !lanHost ? '<span class="liar-rematch-wait">等待房主再来一局…</span>' : ''}
         <button class="btn btn--ghost" type="button" data-liar="leave">离开酒馆</button>
       </div>
     </div>`;
@@ -781,8 +984,9 @@
       btn.addEventListener('click', () => {
         if (!S) return;
         const uid = btn.dataset.liarCard;
+        const limit = CONF.maxPlay - (S.useEcho ? 1 : 0);
         if (S.selected.has(uid)) S.selected.delete(uid);
-        else if (S.selected.size < CONF.maxPlay) S.selected.add(uid);
+        else if (S.selected.size < limit) S.selected.add(uid);
         render();
       });
     });
@@ -797,8 +1001,23 @@
         }
         if (action === 'again') {
           const count = S.playerCount;
+          const echoMode = S.echoMode;
+          const echoMax = S.echoMax;
           UI.closePanel();
-          setTimeout(() => startSolo(count), 180);
+          setTimeout(() => startSolo(count, { echoMode, echoMax }), 180);
+          return;
+        }
+        if (action === 'rematch') {
+          rematchLanHost();
+          return;
+        }
+        if (action === 'echo') {
+          S.useEcho = !S.useEcho;
+          if (S.useEcho && S.selected.size > CONF.maxPlay - 1) {
+            const keep = Array.from(S.selected).slice(0, CONF.maxPlay - 1);
+            S.selected = new Set(keep);
+          }
+          render();
           return;
         }
         if (action === 'challenge') {
@@ -806,7 +1025,7 @@
           return;
         }
         if (action === 'play') {
-          act({ type: 'play', cards: Array.from(S.selected) });
+          act({ type: 'play', cards: Array.from(S.selected), useEcho: S.useEcho });
         }
       });
     });
@@ -886,6 +1105,7 @@
     isActive: () => !!S,
     viewFor,
     createState,
-    applyAction
+    applyAction,
+    buildLiarDeck
   };
 })(window.Casino = window.Casino || {});

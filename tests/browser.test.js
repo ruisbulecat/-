@@ -104,6 +104,7 @@ async function main() {
   await send('Page.enable');
   await send('Log.enable');
   await sleep(300);
+  await waitFor('typeof Casino.UI === "object" && typeof Casino.Liar === "object"', 8000);
 
   check('page has Casino namespace', await evaluate('typeof Casino === "object"'));
   check('setup screen visible initially', await evaluate('!document.getElementById("setupScreen").classList.contains("hidden")'));
@@ -312,6 +313,7 @@ async function main() {
   await sleep(300);
   check('liar lobby opens', await evaluate('!!document.getElementById("liarLobby")'));
   check('liar offers solo 2p and 4p', (await evaluate('document.querySelectorAll("[data-liar-solo]").length')) === 2);
+  check('liar offers classic and echo modes', (await evaluate('document.querySelectorAll("[data-liar-mode]").length')) === 2);
   await click('[data-liar-solo="2"]');
   await sleep(600);
   check('liar table renders', await evaluate('!!document.querySelector(".liar-table")'));

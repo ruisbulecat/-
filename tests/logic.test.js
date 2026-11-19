@@ -347,6 +347,39 @@ console.log('\n[Liar tavern rules]');
   check('liar view exposes only hand counts for opponents', p0view && p0view.handCount === 1 && p0view.hand === undefined);
   check('liar view exposes own hand only', view.myHand.length === state.players[1].hand.length);
 
+  const deck = Liar.buildLiarDeck();
+  const deckRanks = new Set(deck.filter((card) => !card.wild).map((card) => card.rank));
+  check('liar deck only uses J-A', deckRanks.size === 4 && ['J', 'Q', 'K', 'A'].every((rank) => deckRanks.has(rank)), Array.from(deckRanks));
+  check('liar deck has two wildcards', deck.filter((card) => card.wild).length === 2);
+  check('liar deck is two J-A decks plus wilds', deck.length === 34, deck.length);
+
+  const wildCard = { uid: 'wild-test', rank: '万能', wild: true, suit: '★', suitName: '万能', suitIdx: -1, value: 0, red: true, joker: false };
+  resetLiar(state);
+  state.target = 'A';
+  state.players[0].hand = [wildCard];
+  const wildPlay = Liar.applyAction(state, 'p0', { type: 'play', cards: [wildCard.uid] });
+  const wildChallenge = Liar.applyAction(state, 'p1', { type: 'challenge' });
+  check('wildcard counts as the claimed rank', wildPlay.ok && wildChallenge.reveal.truthful === true);
+
+  const echoState = Liar.createState(liarPlayers(), { mode: 'solo', ante: 250, pot: 500, houseCut: 0.1, echoMode: true, echoMax: 2 });
+  check('echo mode creates 1-3 echoes', echoState.echoes.length === 2 && echoState.echoes.every((card) => card.rank === echoState.target), echoState.echoes.length);
+  check('echo mode is exposed in view', Liar.viewFor(echoState, 'p0').echoMode === true && Liar.viewFor(echoState, 'p0').echoes.length === 2);
+  echoState.phase = 'playing';
+  echoState.turn = 0;
+  echoState.target = 'A';
+  echoState.pile = null;
+  echoState.reveal = null;
+  echoState.echoes = [
+    { uid: 'echo-a', rank: 'A', echo: true, suit: '★', suitName: '回响', suitIdx: -1, value: 14, red: true, joker: false },
+    { uid: 'echo-b', rank: 'A', echo: true, suit: '★', suitName: '回响', suitIdx: -1, value: 14, red: true, joker: false }
+  ];
+  echoState.players[0].hand = cardsFrom('AS 2H');
+  const echoPlay = Liar.applyAction(echoState, 'p0', { type: 'play', cards: [echoState.players[0].hand[0].uid], useEcho: true });
+  check('echo can be added to a play', echoPlay.ok && echoState.pile.count === 2 && echoState.pile.cards.some((card) => card.echo), echoState.pile && echoState.pile.count);
+  check('using an echo consumes it', echoState.echoes.length === 1, echoState.echoes.length);
+  const threeCards = echoState.players[1].hand.slice(0, 3).map((card) => card.uid);
+  check('echo counts toward the 3-card limit', !Liar.applyAction(echoState, 'p1', { type: 'play', cards: threeCards, useEcho: true }).ok);
+
   const four = Liar.createState([
     { id: 'a', name: 'A', avatar: '🧑', isAI: false, lives: 2, alive: true, hand: [], bluffed: false },
     { id: 'b', name: 'B', avatar: '🎩', isAI: true, lives: 2, alive: true, hand: [], bluffed: false },

@@ -499,10 +499,11 @@
       <div class="help-section">
         <h3><svg class="icon"><use href="#icon-mask"></use></svg>骗子酒馆</h3>
         <ul>
-          <li>2-4 人，每人 2 条命、5 张手牌。每轮随机一张目标牌，轮到你时可以打出 1-3 张并声称它们是目标牌。</li>
-          <li>下一位玩家可以继续出牌，也可以“质疑”上一手。质疑后只翻开最后一手：如果全是目标牌，质疑者掉 1 条命；如果有假，出牌者掉 1 条命。</li>
-          <li>命掉光就出局，最后活着的人拿走底池的 90%。单人局 1 行动 + $250 底注。</li>
-          <li>单人可以打 2 人局或 4 人局；局域网支持 2-4 人，友谊赛不计现金。</li>
+          <li>2-4 人，每人 2 条命、5 张手牌。牌堆只发 <strong>J / Q / K / A</strong>，另有两张<strong>万能牌</strong>，可当作任意目标牌。</li>
+          <li>每轮随机一张目标牌；轮到你时打出 1-3 张并声称它们是目标牌。下一位可以继续出牌，也可以“质疑”上一手。</li>
+          <li>质疑后只翻开最后一手：全是目标牌/万能牌，质疑者掉 1 条命；有假，出牌者掉 1 条命。最后活着的人赢。</li>
+          <li><strong>回响模式</strong>：开局可选 1-3 张回响。每轮桌上会出现对应数量的公开目标牌，你可以带 1 张进自己的出牌（计入 3 张上限）。</li>
+          <li>单人局 1 行动 + $250 底注；本地 / 局域网联机是友谊赛，且支持同房间再来一局。</li>
         </ul>
       </div>
       <div class="help-section">
@@ -622,13 +623,14 @@
     }
 
     if (card.joker) classes.push('pcard--joker');
+    if (card.wild) classes.push('pcard--wild');
     if (card.red) classes.push('pcard--red');
 
-    const corner = card.joker ? (card.rank === '大王' ? '大' : '小') : card.rank;
-    const suit = card.joker ? '王' : card.suit;
-    const pip = card.joker ? '王' : card.suit;
+    const corner = card.wild ? '万' : card.joker ? (card.rank === '大王' ? '大' : '小') : card.rank;
+    const suit = card.wild ? '★' : card.joker ? '王' : card.suit;
+    const pip = card.wild ? '★' : card.joker ? '王' : card.suit;
     const data = options.uidAttr == null ? (card.uid ? ` data-uid="${card.uid}"` : '') : ` data-uid="${options.uidAttr}"`;
-    const title = card.joker ? card.rank : card.suit + card.rank;
+    const title = card.wild ? '万能牌' : card.joker ? card.rank : card.suit + card.rank;
 
     return `<span class="${classes.join(' ')}"${data}${options.style ? ` style="${options.style}"` : ''} title="${title}">
       <span class="pcard__corner"><b>${corner}</b><i>${suit}</i></span>

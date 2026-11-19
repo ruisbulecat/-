@@ -13,11 +13,14 @@
   let offMessage = null;
   let offStatus = null;
 
-  function open(game) {
+  function open(game, options) {
     if (S) return;
+    const opts = options || {};
     S = {
       tab: 'create',
       game: game === 'roulette' ? 'roulette' : 'liar',
+      liarMode: opts.liarMode === 'echo' ? 'echo' : 'classic',
+      echoCount: Math.max(1, Math.min(3, Number(opts.echoCount) || 1)),
       name: C.storage.get('casino.lanName', '') || '',
       code: '',
       room: false,
@@ -33,9 +36,9 @@
 
     const available = C.Net && C.Net.available();
     UI.openPanel({
-      kicker: 'LAN PARTY · LOCAL NETWORK',
-      title: '局域网联机',
-      subtitle: available ? '同一 Wi-Fi 下开房，最多 4 人。联机牌局是友谊赛，不计现金和行动。' : '需要先启动局域网服务器。',
+      kicker: 'LOCAL PARTY · NO INTERNET',
+      title: '本地 / 局域网联机',
+      subtitle: available ? '同一台电脑双开，或同一 Wi-Fi 开房；不需要外网。联机为友谊赛，不计现金和行动。' : '需要先启动本地服务器（start-lan.bat）。',
       wide: true,
       body: `<div class="lan-lobby" id="lanLobby">${renderBody(available)}</div>`,
       onClosed: () => {
@@ -89,12 +92,13 @@
     if (!available || S.apiReady === false) {
       return `
         <div class="lan-offline">
-          <span class="lan-offline__icon">📡</span>
-          <h3>${available ? '当前服务器没有局域网接口' : '局域网模式需要本地服务器'}</h3>
-          <p>在项目目录打开终端，运行：</p>
-          <pre><code>node server/lan-server.js</code></pre>
-          <p>然后用终端里打印的 <strong>局域网地址</strong>（例如 <code>http://192.168.1.8:8787</code>）打开游戏，而不是双击 <code>index.html</code>。</p>
-          <p class="lan-offline__note">同一 Wi-Fi 下的手机 / 电脑访问同一个地址即可开房。没有服务器时，单人模式不受影响。</p>
+          <span class="lan-offline__icon">💻</span>
+          <h3>${available ? '当前服务器没有联机接口' : '本地联机需要先启动服务器'}</h3>
+          <p>最简单的方式：双击项目根目录的 <code>start-lan.bat</code>。它会优先用 Python 启动本地服务器（不需要安装 Node，也不需要外网）。</p>
+          <p>也可以手动运行：</p>
+          <pre><code>py -3 server/lan-server.py</code></pre>
+          <p>然后用 <code>http://localhost:8787</code> 在本机开两个浏览器窗口，或把终端打印的局域网地址发给同一 Wi-Fi 的朋友。</p>
+          <p class="lan-offline__note">单人模式不需要服务器：直接双击 <code>index.html</code> 即可离线游玩。</p>
         </div>
       `;
     }
@@ -127,7 +131,7 @@
             <button class="btn btn--primary btn--lg btn--block" type="button" data-lan-join>加入房间</button>
           `}
           ${S.error ? `<p class="lan-error">${util.escapeHtml(S.error)}</p>` : ''}
-          <p class="lan-hint">同一 Wi-Fi 下打开 <strong>${util.escapeHtml(location.origin)}</strong>，把房间码告诉朋友。房主开始后所有人自动进入牌局。</p>
+          <p class="lan-hint">本机双开：先在两个浏览器窗口打开 <strong>${util.escapeHtml(location.origin)}</strong>；同一 Wi-Fi：把终端打印的局域网地址发给朋友。房主开始后所有人自动进入牌局。</p>
         </div>
       `;
     }
@@ -151,6 +155,17 @@
             ${p.id === C.Net.playerId ? '<small>你</small>' : ''}
           </div>`).join('')}
         </div>
+        ${S.game === 'liar' ? `
+          <div class="lan-liar-options">
+            <span class="lan-liar-options__label">酒馆模式</span>
+            ${isHost ? `
+              <button class="liar-chip${S.liarMode === 'classic' ? ' is-active' : ''}" type="button" data-lan-liar-mode="classic">经典</button>
+              <button class="liar-chip${S.liarMode === 'echo' ? ' is-active' : ''}" type="button" data-lan-liar-mode="echo">回响</button>
+              ${S.liarMode === 'echo' ? [1, 2, 3].map((n) => `<button class="liar-chip${S.echoCount === n ? ' is-active' : ''}" type="button" data-lan-echo="${n}">${n} 张</button>`).join('') : ''}
+              <small>J-A + 2 张万能牌；回响为每轮公开的目标牌</small>
+            ` : `<strong>由房主选择</strong><small>开始后自动同步模式</small>`}
+          </div>
+        ` : ''}
         <div class="lan-room__foot">
           ${isHost
             ? `<button class="btn btn--primary btn--lg" type="button" data-lan-start ${canStart ? '' : 'disabled'}>${S.starting ? '正在开始……' : players.length < need ? '至少需要 2 人' : '开始游戏'}</button>`
@@ -158,7 +173,7 @@
           <button class="btn btn--ghost" type="button" data-lan-leave>离开房间</button>
         </div>
         ${S.error ? `<p class="lan-error">${util.escapeHtml(S.error)}</p>` : ''}
-        <p class="lan-hint">把房间码告诉同一 Wi-Fi 下的朋友；房主开始后所有人自动进入牌局。</p>
+        <p class="lan-hint">把房间码告诉同一 Wi-Fi 下的朋友，或在本机另一个浏览器窗口加入。房主开始后所有人自动进入牌局，不需要外网。</p>
       </div>
     `;
   }
@@ -193,6 +208,19 @@
     root.querySelectorAll('[data-lan-game]').forEach((btn) => {
       btn.addEventListener('click', () => {
         S.game = btn.dataset.lanGame;
+        render();
+      });
+    });
+
+    root.querySelectorAll('[data-lan-liar-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        S.liarMode = btn.dataset.lanLiarMode === 'echo' ? 'echo' : 'classic';
+        render();
+      });
+    });
+    root.querySelectorAll('[data-lan-echo]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        S.echoCount = Math.max(1, Math.min(3, Number(btn.dataset.lanEcho) || 1));
         render();
       });
     });
@@ -293,10 +321,18 @@
     C.Net.send('start', null, {
       game: S.game,
       players,
-      hostId: C.Net.playerId
+      hostId: C.Net.playerId,
+      liarMode: S.liarMode,
+      echoCount: S.echoCount
     }).then(() => {
       if (!S) return;
-      const payload = { game: S.game, players, hostId: C.Net.playerId };
+      const payload = {
+        game: S.game,
+        players,
+        hostId: C.Net.playerId,
+        liarMode: S.liarMode,
+        echoCount: S.echoCount
+      };
       S.phase = 'started';
       launch(payload, true);
     }).catch((e) => {
@@ -314,7 +350,9 @@
       role: isHost ? 'host' : 'client',
       myId: C.Net.playerId,
       players: payload.players || [],
-      hostId: payload.hostId
+      hostId: payload.hostId,
+      liarMode: payload.liarMode,
+      echoCount: payload.echoCount
     };
     cleanup();
     UI.closePanel();

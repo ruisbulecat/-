@@ -116,7 +116,7 @@
       { id: 'vip', name: '10,000 元场', buyIn: 10000, sb: 100, bb: 200, icon: '👑', desc: '10,000 买入 · 盲注 100 / 200', tone: 'red' }
     ],
 
-    /* 骗子酒馆：2-4 人，剩最后一人获胜 */
+    /* 骗子酒馆：2-4 人，剩最后一人获胜；只用 J-A + 两张万能牌 */
     LIAR: {
       ante: 250,
       minMoney: 250,
@@ -124,6 +124,10 @@
       handSize: 5,
       maxPlay: 3,
       houseCut: 0.1,
+      ranks: ['J', 'Q', 'K', 'A'],
+      decks: 2,
+      wildcards: 2,
+      echoMax: 3,
       opponents: [
         { name: '老 K', emoji: '🎩' },
         { name: '阿珍', emoji: '💃' },
@@ -210,6 +214,7 @@
       liar_win: { name: '酒馆常胜', desc: '赢下一局骗子酒馆。', icon: '🍻' },
       liar_bluff: { name: '弥天大谎', desc: '带着至少一次诈唬赢下骗子酒馆。', icon: '🤥' },
       liar_flawless: { name: '一滴血都没掉', desc: '满血赢下一局骗子酒馆。', icon: '🛡️', secret: true },
+      liar_echo: { name: '回响不绝', desc: '在回响模式下赢下一局骗子酒馆。', icon: '🔁', secret: true },
 
       /* ---- 恶魔轮盘赌 ---- */
       roulette_win: { name: '与恶魔对赌', desc: '赢下一局恶魔轮盘赌。', icon: '🔫' },

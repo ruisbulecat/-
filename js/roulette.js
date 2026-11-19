@@ -452,8 +452,12 @@
       return;
     }
     if (S.mode === 'client' && msg.type === 'state') {
+      const wasResult = !!S.view && S.view.phase === 'result';
       S.view = msg.payload.view;
       S.pending = false;
+      if (wasResult && S.view && S.view.phase === 'playing') {
+        S.settled = false;
+      }
       render();
       if (S.view && S.view.phase === 'result') settleLan();
       return;
@@ -475,7 +479,14 @@
     if (!S || S.mode !== 'host') return;
     const state = S.state;
     const p = state.players.find((item) => item.id === playerId);
-    if (!p || !p.alive) return;
+    if (!p) return;
+    p.left = true;
+    if (state.phase === 'result') {
+      state.log.push(`${p.name} 离开了房间。`);
+      afterAction();
+      return;
+    }
+    if (!p.alive) return;
     p.alive = false;
     p.hp = 0;
     state.log.push(`${p.name} 离开了牌局。`);
@@ -644,6 +655,20 @@
     render();
   }
 
+  function rematchLanHost() {
+    if (!S || S.mode !== 'host' || !S.state || S.state.phase !== 'result') return;
+    const players = S.state.players.filter((p) => !p.left).map((p) => makePlayer(p.id, p.name, p.avatar, false));
+    if (players.length < 2) {
+      UI.toast('人数不足 2 人，无法再来一局。', 'lose');
+      return;
+    }
+    S.state = createState(players, { mode: 'host', ante: 0, pot: 0, houseCut: 0 });
+    S.settled = false;
+    S.pending = false;
+    broadcast();
+    render();
+  }
+
   /* ============================================================
      渲染
      ============================================================ */
@@ -776,6 +801,8 @@
       : 0;
     const cls = amount > 0 ? 'pos' : amount < 0 ? 'neg' : 'tie';
     const canAgain = view.mode === 'solo' && C.state.actions > 0 && C.state.money >= view.ante && !C.state.gameOver;
+    const isLan = view.mode !== 'solo';
+    const lanHost = isLan && S.mode === 'host';
     return `<div class="roulette-result roulette-result--${won ? 'win' : 'loss'}">
       <p class="roulette-result__eyebrow">GAME OVER</p>
       <h3>${won ? '你活下来了' : `${util.escapeHtml(winner ? winner.name : '恶魔')} 活下来了`}</h3>
@@ -783,6 +810,8 @@
       <p>${view.mode === 'solo' ? (won ? `底池 ${util.fmt(view.pot)}，抽水 10% 后到手 ${util.fmt(amount)}。` : `底注 ${util.fmt(view.ante)} 留在了桌上。`) : '局域网友谊赛，输赢只关乎面子。'}</p>
       <div class="roulette-result__actions">
         ${view.mode === 'solo' ? `<button class="btn btn--primary" type="button" data-roulette="again" ${canAgain ? '' : 'disabled'}>再来一局（1 行动）</button>` : ''}
+        ${lanHost ? '<button class="btn btn--primary" type="button" data-roulette="rematch">同房间再来一局</button>' : ''}
+        ${isLan && !lanHost ? '<span class="liar-rematch-wait">等待房主再来一局…</span>' : ''}
         <button class="btn btn--ghost" type="button" data-roulette="leave">离开轮盘</button>
       </div>
     </div>`;
@@ -803,6 +832,10 @@
         if (action === 'again') {
           UI.closePanel();
           setTimeout(startSolo, 180);
+          return;
+        }
+        if (action === 'rematch') {
+          rematchLanHost();
           return;
         }
         if (action === 'self') {
